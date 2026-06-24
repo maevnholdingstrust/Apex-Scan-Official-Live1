@@ -951,9 +951,9 @@ export default function Dashboard() {
     oracles: false,
     chart: true,
     executions: false,
-    workspace: false,
-    intel: false,
-    modules: false,
+    workspace: true,
+    intel: true,
+    modules: true,
   });
 
   const toggleLayout = (key: keyof typeof layout) =>
@@ -1303,7 +1303,7 @@ export default function Dashboard() {
       <ConfettiCelebration show={showBagSecured} />
 
       <div
-        className="absolute inset-0 pointer-events-none overflow-hidden z-0"
+        className="fixed inset-0 pointer-events-none overflow-hidden z-0"
         aria-hidden="true"
       >
         <div className="absolute -top-[10%] -left-[10%] w-[40vw] h-[40vh] bg-sky-900/20 rounded-full blur-[120px]" />
@@ -1342,13 +1342,13 @@ export default function Dashboard() {
       <Ticker opportunities={opportunities} />
 
       {!dryRun && (
-        <div className="h-[11px] min-h-[11px] shrink-0 bg-[#00f5a0]/5 border-b border-[#00f5a0]/15 flex items-center justify-center font-mono text-[6px] font-bold tracking-[0.2em] uppercase text-[#00f5a0] select-none animate-pulse">
+        <div className="h-[20px] shrink-0 bg-[#00f5a0]/5 border-b border-[#00f5a0]/15 flex items-center justify-center font-mono text-[8px] font-bold tracking-[0.2em] uppercase text-[#00f5a0] select-none animate-pulse">
           ⚡ COGNIZANT SYSTEM ARMED: LIVE MAINNET TRANSACTIONS ENGAGED — BUNDLES PROCESSED DIRECTLY ON-CHAIN
         </div>
       )}
 
       {dryRun && (
-        <div className="h-[11px] min-h-[11px] shrink-0 bg-yellow-500/5 border-b border-yellow-500/15 flex items-center justify-center font-mono text-[6px] font-bold tracking-[0.2em] uppercase text-yellow-500 select-none animate-pulse">
+        <div className="h-[20px] shrink-0 bg-yellow-500/5 border-b border-yellow-500/15 flex items-center justify-center font-mono text-[8px] font-bold tracking-[0.2em] uppercase text-yellow-500 select-none animate-pulse">
           ⚠️ PASSIVE MONITORING PHASE ENGAGED — BUNDLES EVALUATED BUT NOT BROADCASTED
         </div>
       )}

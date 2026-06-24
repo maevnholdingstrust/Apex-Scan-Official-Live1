@@ -117,7 +117,7 @@ export default function ExecutionModal({
   }, [alert]);
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    logsEndRef.current?.scrollIntoView({ behavior: "auto", block: "nearest" });
   }, [logs]);
 
   if (!alert) return null;
