@@ -951,9 +951,9 @@ export default function Dashboard() {
     oracles: false,
     chart: true,
     executions: false,
-    workspace: true,
-    intel: true,
-    modules: true,
+    workspace: false,
+    intel: false,
+    modules: false,
   });
 
   const toggleLayout = (key: keyof typeof layout) =>
@@ -1399,13 +1399,13 @@ export default function Dashboard() {
                 <HyperImmersiveOpportunities opportunities={opportunities} />
             </div>
             <div className="xl:col-span-1 min-h-[300px]">
-                <QuantumCore />
+                <QuantumCore logs={logs} />
             </div>
           </div>
         )}
 
         {/* Recharts Data Visualization block */}
-        <VisualAnalytics historyLogs={logs} />
+        {layout.chart && <VisualAnalytics historyLogs={logs} />}
 
         {/* Protocol Modules View */}
         {layout.modules && (

@@ -56,16 +56,16 @@ export default function Header({
     switch (connectionStatus) {
       case "live":
         return (
-          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-sm text-emerald-400 font-medium tracking-wide">
-            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-            <span>LIVE · SYNCED</span>
+          <div className="flex items-center gap-2 bg-sky-500/10 border border-sky-500/30 px-2.5 py-1 rounded-sm text-sky-400 font-bold tracking-widest text-[9px] uppercase shadow-[0_0_10px_rgba(14,165,233,0.2)]">
+            <span className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-pulse shadow-[0_0_5px_#38bdf8]" />
+            <span>QUANTUM LINK SYNCED</span>
           </div>
         );
       case "poll":
         return (
-          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-sm text-amber-500 font-medium tracking-wide">
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-sm text-amber-500 font-bold tracking-widest text-[9px] uppercase">
             <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
-            <span>API POLL</span>
+            <span>RPC DEGRADED</span>
           </div>
         );
       case "connecting":
@@ -86,34 +86,34 @@ export default function Header({
   };
 
   return (
-    <header className="h-14 bg-[#09090b] border-b border-[#27272a] flex items-center px-6 justify-between gap-6 font-mono text-xs shrink-0 relative z-30 select-none shadow-sm">
+    <header className="h-14 bg-black/60 backdrop-blur-xl border-b border-sky-500/20 flex items-center px-6 justify-between gap-6 font-mono text-xs shrink-0 relative z-30 select-none shadow-[0_4px_30px_rgba(14,165,233,0.1)]">
       {/* Logo Section */}
       <div className="flex items-center gap-3">
-        <div className="w-7 h-7 bg-[#18181b] rounded-md border border-[#27272a] flex items-center justify-center font-bold text-white shadow-sm">
+        <div className="w-8 h-8 bg-sky-500/10 rounded-md border border-sky-500/30 flex items-center justify-center font-bold text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.2)]">
           Ω
         </div>
         <div>
-          <h1 className="text-xs font-semibold tracking-[0.15em] text-white/90 leading-none">
-            APEX OMEGA 2.0
+          <h1 className="text-xs font-bold tracking-[0.2em] text-white leading-none drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">
+            APEX QUANTUM
           </h1>
         </div>
       </div>
 
-      <div className="h-5 w-px bg-[#27272a]" />
+      <div className="h-5 w-px bg-sky-500/20" />
 
       {/* Backend Status Flag */}
       {getConnBadge()}
 
-      <div className="h-4 w-px bg-cyan-900/50 hidden md:block" />
+      <div className="h-5 w-px bg-sky-500/20 hidden md:block" />
 
       {/* Real-time Telemetry Headers */}
       <div className="flex items-center gap-6">
         <div className="flex flex-col items-end">
-          <span className="text-gray-500 uppercase text-[9px] tracking-widest font-medium">
-            NET P&L
+          <span className="text-sky-500/70 uppercase text-[9px] tracking-widest font-bold">
+            NET YIELD
           </span>
           <span
-            className={`font-semibold font-mono transition-all text-xs ${pnl >= 0 ? "text-emerald-400" : "text-rose-400"}`}
+            className={`font-bold font-mono transition-all text-xs drop-shadow-md ${pnl >= 0 ? "text-[#00f5a0]" : "text-rose-400"}`}
           >
             $
             {pnl.toLocaleString(undefined, {
@@ -124,19 +124,19 @@ export default function Header({
         </div>
 
         <div className="flex flex-col items-end">
-          <span className="text-gray-500 uppercase text-[9px] tracking-widest font-medium">
-            POLYGON GAS
+          <span className="text-sky-500/70 uppercase text-[9px] tracking-widest font-bold">
+            NETWORK GAS
           </span>
-          <span className="text-amber-400 font-semibold font-mono text-xs">
+          <span className="text-amber-400 font-bold font-mono text-xs drop-shadow-md">
             {gas.toFixed(1)} gwei
           </span>
         </div>
 
         <div className="flex flex-col items-end hidden sm:flex">
-          <span className="text-gray-500 uppercase text-[9px] tracking-widest font-medium">
+          <span className="text-sky-500/70 uppercase text-[9px] tracking-widest font-bold">
             BLOCK_HEIGHT
           </span>
-          <span className="text-neutral-200 font-semibold font-mono text-xs">
+          <span className="text-white font-bold font-mono text-xs drop-shadow-md">
             {block ? block.toLocaleString() : "—"}
           </span>
         </div>

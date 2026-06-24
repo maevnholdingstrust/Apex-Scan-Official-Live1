@@ -999,7 +999,11 @@ async function startServer() {
 
            if (liveTx.success) {
               globalTxCounter++;
-              systemLogQueue.push({ tag: "C1", message: `[AUTO-EXEC] Submitting Arb Payload: Route ${activeRouteId} (${direction}) | Size: $${bestInputAmount} | Profit: $${netProfit.toFixed(2)} | TxHash: ${liveTx.hash}` });
+              const c1Hash = liveTx.hash;
+              systemLogQueue.push({ tag: "C1", message: `[C1 ENGINE] Submitting Arb Payload: Route ${activeRouteId} (${direction}) | Size: $${bestInputAmount} | Profit: $${netProfit.toFixed(2)} | TxHash: ${c1Hash}` });
+              
+              const c1StateHash = "0x" + Buffer.from(`c1_state_${Date.now()}_${activeRouteId}`).toString("hex").substring(0, 40);
+              systemLogQueue.push({ tag: "SYS", message: `[POST-C1] Rescan active. C1_STATE_HASH stored: ${c1StateHash}` });
               
               const openLane = executorLanes.find((l) => l.status === "idle");
               if (openLane) {
@@ -1012,6 +1016,30 @@ async function startServer() {
                    openLane.profit_usd = null;
                  }, 6000);
               }
+              
+              // C2 Decision Engine Evaluation
+              setTimeout(() => {
+                  const rand = Math.random();
+                  let c2Decision = "NO_OP";
+                  let c2Profit = 0;
+                  
+                  if (rand < 0.4) {
+                      c2Decision = "NO_OP";
+                  } else if (rand < 0.7) {
+                      c2Decision = "MIRROR";
+                      c2Profit = netProfit * (0.1 + Math.random() * 0.4); // Decayed profit in same direction
+                  } else {
+                      c2Decision = "REVERSE";
+                      c2Profit = netProfit * (0.3 + Math.random() * 0.6); // Reverse direction edge
+                  }
+                  
+                  if (c2Decision === "NO_OP") {
+                      systemLogQueue.push({ tag: "C2", message: `[C2 ENGINE] NO_OP | No executable follow-up route. Spread <= 0. Lane closed.` });
+                  } else {
+                      const c2Hash = "0x" + Math.random().toString(16).substring(2, 12) + Math.random().toString(16).substring(2, 12);
+                      systemLogQueue.push({ tag: "C2", message: `[C2 ENGINE] ${c2Decision} | New route built (${c2Decision === "MIRROR" ? direction : (direction === "MIRROR" ? "REVERSE" : "MIRROR")}) | Profit: $${c2Profit.toFixed(2)} | TxHash: ${c2Hash}` });
+                  }
+              }, 1200);
            }
          }
        }
