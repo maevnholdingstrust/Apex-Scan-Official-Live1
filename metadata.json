@@ -1,6 +1,6 @@
 {
   "name": "APEX_OMEGA",
-  "description": "Production-ready MEV infrastructure for DEX arbitrage and Aave V3 liquidation hunting on Polygon.",
+  "description": "Production-ready MEV infrastructure for live DEX arbitrage, telemetry, and Aave V3 liquidation monitoring.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["DeFi Indexing", "Arbitrage Detection", "Liquidation Hunting"]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

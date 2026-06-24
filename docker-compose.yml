@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  apex-omega:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: apex-omega-bot
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    volumes:
+      # Optional: Persist dynamic in-memory configurations (if using file-based overrides locally)
+      # Uncomment the following line if you want config.json to persist across container restarts.
+      - ./config.json:/app/config.json
+      - app_logs:/app/logs
+
+volumes:
+  app_logs:

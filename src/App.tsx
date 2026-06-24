@@ -4,11 +4,14 @@
  */
 
 import Dashboard from './components/Dashboard';
+import ErrorBoundary from './components/ErrorBoundary';
 
 export default function App() {
   return (
     <div id="app-root">
-      <Dashboard />
+      <ErrorBoundary>
+        <Dashboard />
+      </ErrorBoundary>
     </div>
   );
 }

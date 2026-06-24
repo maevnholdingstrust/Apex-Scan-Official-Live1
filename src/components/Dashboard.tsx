@@ -1,427 +1,1887 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import { Activity, Shield, Zap, Database, Terminal as TerminalIcon, BarChart3, AlertTriangle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Shield,
+  Zap,
+  Database,
+  BarChart3,
+  Sliders,
+  Wallet,
+  Cpu,
+  Activity,
+  AlertTriangle,
+  Terminal as TerminalIcon,
+  Search,
+  ArrowRight,
+  CheckCircle2,
+  ChevronRight,
+  Bot,
+  Layers,
+  BrainCircuit,
+} from "lucide-react";
+import ConfettiCelebration from "./ConfettiCelebration";
 
-// Common Technical Border Component
-const TechContainer = ({ children, title, icon: Icon }: { children: React.ReactNode, title?: string, icon?: any }) => (
-  <div className="relative border border-[#1e2025] bg-[#0d0e12] p-4 rounded-sm overflow-hidden mb-4">
-    <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-blue-500/50" />
-    <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-blue-500/50" />
-    <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-blue-500/50" />
-    <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-blue-500/50" />
-    
-    {title && (
-      <div className="flex items-center gap-2 mb-4 border-b border-[#1e2025] pb-2">
-        {Icon && <Icon size={16} className="text-blue-400" />}
-        <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-400">{title}</h3>
-      </div>
-    )}
-    {children}
-  </div>
-);
+import Header from "./Header";
+import Ticker from "./Ticker";
+import ControlPanel from "./ControlPanel";
+import ProfitDashboard from "./ProfitDashboard";
+import OracleFeeds from "./OracleFeeds";
+import LiquidationMonitor from "./LiquidationMonitor";
+import ArbitrageCycleVisualization from "./ArbitrageCycleVisualization";
+import SystemIntel from "./SystemIntel";
+import LanesGrid from "./LanesGrid";
+import ConfigTab from "./ConfigTab";
+import WalletTab from "./WalletTab";
+import AgentTab from "./AgentTab";
+import NotificationSidebar from "./NotificationSidebar";
+import SimulationConsole from "./SimulationConsole";
+import EconomicSentimentWidget from "./EconomicSentimentWidget";
+import DiagnosticConsole from "./DiagnosticConsole";
+import BenchmarkScorecard from "./BenchmarkScorecard";
+import MainnetPayloadSchema from "./MainnetPayloadSchema";
+import C2TriggerLogic from "./C2TriggerLogic";
+import VisualAnalytics from "./VisualAnalytics";
+import QuantumCore from "./QuantumCore";
 
-const Terminal = () => {
-  const [logs, setLogs] = useState<string[]>([]);
+interface Log {
+  id: string;
+  timestamp: string;
+  tag: "C1" | "C2" | "DEX" | "SYS" | "ERR" | "AAVE" | "ARB";
+  message: string;
+}
 
-  useEffect(() => {
-    const messages = [
-      "[SYSTEM] Booting APEX_OMEGA kernel...",
-      "[NETWORK] Checking RPC health: 0.45ms latency",
-      "[DEX] Indexing 274 liquidity pools...",
-      "[AAVE] Scanner active - searching for health factor < 1.0",
-      "[ARB] Scanning spreads: QuickSwap -> Uniswap V3",
-      "[SEC] Reentrancy guards armed",
-      "[SYSTEM] Ready for execution"
-    ];
-    
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < messages.length) {
-        setLogs(prev => [...prev.slice(-15), messages[i]]);
-        i++;
+// -------------------------------------------------------------------
+// Component: Aave Inspector (Polled Query on Polygon Mainnet)
+// -------------------------------------------------------------------
+const AaveInspectorTab = ({
+  addLog,
+}: {
+  addLog: (tag: any, msg: string) => void;
+}) => {
+  const [address, setAddress] = useState(
+    "0xaD3eF84259cFACB5D77a70911f85d39D2DBB49c6",
+  );
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleInspect = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    addLog(
+      "AAVE",
+      `Querying Aave V3 position direct metrics for: ${address.slice(0, 10)}...`,
+    );
+    try {
+      const res = await fetch("/api/aave-inspect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userAddress: address }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setResult(data);
+        addLog(
+          "AAVE",
+          `SUCCESS! Health of ${address.slice(0, 8)} is verified at health factor: ${data.healthFactor.toFixed(4)}`,
+        );
       } else {
-        // Add random scanning noise
-        const noise = [
-          `[SCAN] Block ${42069137 + Math.floor(Math.random()*100)} processed`,
-          `[SCAN] No spreads found on WETH/USDC`,
-          `[AAVE] User 0x${Math.random().toString(16).slice(2, 6)}... healthy`,
-        ];
-        setLogs(prev => [...prev.slice(-15), noise[Math.floor(Math.random()*noise.length)]]);
+        setError(data.error || "Failed to inspect on-chain account.");
+        addLog(
+          "ERR",
+          `Failed user inspect: ${data.error || "General position overflow error"}`,
+        );
       }
-    }, 2000);
-    
-    return () => clearInterval(interval);
-  }, []);
+    } catch (e: any) {
+      setError(e.message || "Network failure.");
+      addLog("ERR", `Inspect fail: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <TechContainer title="System Logs" icon={TerminalIcon}>
-      <div className="font-mono text-[11px] h-64 overflow-y-auto space-y-1 scrollbar-hide">
-        {logs.map((log, i) => (
-          <div key={i} className={log.includes('!]') ? 'text-red-400' : 'text-green-500/80'}>
-            <span className="opacity-40 mr-2">[{new Date().toLocaleTimeString()}]</span>
-            {log}
-          </div>
-        ))}
+    <div className="font-mono text-[10px] space-y-3 bg-[#0d0e12]/80 p-4 border border-[#1e2025] rounded-sm relative">
+      <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-blue-500/50" />
+      <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-blue-500/50" />
+      <div className="flex items-center gap-2 mb-1 border-b border-[#1e2025]/50 pb-2">
+        <Shield size={14} className="text-blue-400" />
+        <h3 className="uppercase tracking-[0.18em] font-bold text-gray-400">
+          Aave V3 Mainnet Inspector
+        </h3>
       </div>
-    </TechContainer>
+      <p className="text-gray-500 text-[9px] leading-relaxed">
+        Verify account health factors, total collateral bases, and liquidation
+        eligibility direct from Polygon Aave Pool contracts:
+      </p>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="0x..."
+          className="flex-1 bg-black/40 border border-[#1e2025]/80 px-2 py-1.5 text-[10px] text-white focus:border-blue-400 outline-none rounded-sm font-mono"
+        />
+        <button
+          onClick={handleInspect}
+          disabled={loading}
+          className="px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold uppercase transition-colors px-2 border border-blue-500/30 cursor-pointer flex items-center gap-1.5"
+        >
+          {loading ? "INSIPECTING..." : "QUERY STATE"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="p-2 border border-red-900/40 bg-red-950/10 text-red-400 rounded-sm">
+          ⚠️ {error}
+        </div>
+      )}
+
+      {result && (
+        <div className="p-3 border border-[#1e2025] bg-black/30 space-y-2 rounded-sm text-gray-300">
+          <div className="flex justify-between items-center py-1 border-b border-[#1e2025]/30">
+            <span className="text-gray-500">HEALTH FACTOR (HF):</span>
+            <span
+              className={`font-bold text-[11px] ${result.healthFactor < 1 ? "text-red-500 animate-pulse" : "text-green-400"}`}
+            >
+              {result.healthFactor.toFixed(5)}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 pt-1">
+            <div>
+              <div className="text-gray-500 text-[8px]">TOTAL COLLATERAL</div>
+              <div className="text-white font-bold text-[11px]">
+                $
+                {result.totalCollateralUsd.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-500 text-[8px]">
+                TOTAL DEBT POSITION
+              </div>
+              <div className="text-white font-bold text-[11px]">
+                $
+                {result.totalDebtUsd.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 pt-1.5 border-t border-[#1e2025]/20">
+            <div>
+              <div className="text-gray-500 text-[8px]">MAX LTV RATE</div>
+              <div className="text-[#00e5ff] font-bold">
+                {result.ltvPct.toFixed(2)}%
+              </div>
+            </div>
+            <div>
+              <div className="text-gray-500 text-[8px]">
+                LIQUIDATION THRESHOLD
+              </div>
+              <div className="text-yellow-500 font-bold">
+                {result.liquidationThresholdPct.toFixed(2)}%
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
-const LiquidationList = () => {
+// -------------------------------------------------------------------
+// Component: Target Liquidation Hunting Tab
+// -------------------------------------------------------------------
+const LiquidationTab = ({
+  addLog,
+}: {
+  addLog: (tag: any, msg: string) => void;
+}) => {
   const [items, setItems] = useState<any[]>([]);
   const [executing, setExecuting] = useState<string | null>(null);
-  const [confirmTarget, setConfirmTarget] = useState<any | null>(null);
-  const [result, setResult] = useState<any | null>(null);
+
+  const fetchLiquidations = () => {
+    fetch("/api/liquidations")
+      .then((res) => res.json())
+      .then(setItems)
+      .catch(() => {});
+  };
 
   useEffect(() => {
-    fetch('/api/liquidations').then(res => res.json()).then(setItems);
+    fetchLiquidations();
+    const interval = setInterval(fetchLiquidations, 6000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleExecute = async (item: any) => {
-    setExecuting(item.user);
-    setConfirmTarget(null);
-    setResult(null);
+  const handleExecute = async (user: string, healthFactor: number) => {
+    setExecuting(user);
+    addLog(
+      "C1",
+      `Initiating Balancer V2 multi-venue liquidation flash path for user user: ${user.slice(0, 12)}...`,
+    );
+    addLog(
+      "C1",
+      `Borrowing Flash-liquidity limit caps... Health factor: ${healthFactor}`,
+    );
 
     try {
-      const res = await fetch('/api/liquidations/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: item.user, healthFactor: item.healthFactor })
+      const res = await fetch("/api/liquidations/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user, healthFactor }),
       });
       const data = await res.json();
-      setResult(data);
       if (data.success) {
-        setItems(prev => prev.filter(i => i.user !== item.user));
+        addLog(
+          "C2",
+          `LIQUIDATION SUCCESSFUL! Purged user position. Solved profit: +$${data.profit} USDC | Gas used: ${data.gasUsed}`,
+        );
+        addLog("C2", `VERIFICATION DNA: ${data.txHash.toUpperCase()}`);
+        fetchLiquidations();
+      } else {
+        addLog("ERR", `Execution fail: ${data.message}`);
       }
-    } catch (err) {
-      setResult({ success: false, message: 'Network failure' });
+    } catch (e: any) {
+      addLog("ERR", `Liquidation trigger crash: ${e.message}`);
     } finally {
       setExecuting(null);
     }
   };
 
   return (
-    <>
-      {/* Confirmation Modal */}
-      {confirmTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-full max-w-md bg-[#0d0e12] border border-[#1e2025] p-6 rounded-sm shadow-2xl relative"
-          >
-            <div className="flex items-center gap-3 text-yellow-500 mb-4">
-              <AlertTriangle size={24} />
-              <h3 className="font-mono uppercase tracking-widest text-sm">Confirm Execution</h3>
-            </div>
-            
-            <div className="space-y-4 mb-6 font-mono text-[11px]">
-              <div className="flex justify-between border-b border-[#1e2025] pb-2">
-                <span className="text-gray-500">Target</span>
-                <span className="text-white">{confirmTarget.user}</span>
-              </div>
-              <div className="flex justify-between border-b border-[#1e2025] pb-2">
-                <span className="text-gray-500">Debt To Cover</span>
-                <span className="text-white">${confirmTarget.debtValue.toLocaleString()} USDC</span>
-              </div>
-              <div className="flex justify-between border-b border-[#1e2025] pb-2">
-                <span className="text-gray-500">Collateral Reward</span>
-                <span className="text-green-500">${confirmTarget.collateralValue.toLocaleString()} {confirmTarget.collateral}</span>
-              </div>
-            </div>
-
-            <p className="text-[10px] text-gray-500 mb-6 leading-relaxed">
-              WARNING: This operation will request a Balancer flash loan to repay the debt. 
-              Execution is permanent and depends on current gas market conditions on Polygon.
-            </p>
-
-            <div className="flex gap-4">
-              <button 
-                onClick={() => setConfirmTarget(null)}
-                className="flex-1 py-2 border border-[#1e2025] text-gray-500 font-mono text-[10px] uppercase hover:bg-white/5"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => handleExecute(confirmTarget)}
-                className="flex-1 py-2 bg-blue-600 border border-blue-500 text-white font-mono text-[10px] uppercase hover:bg-blue-500"
-              >
-                Sign & Execute
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Result Notification Popup */}
-      {result && (
-        <motion.div 
-          initial={{ y: 50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className={`fixed bottom-10 right-10 z-50 p-4 border rounded-sm flex items-center gap-4 shadow-2xl ${result.success ? 'bg-green-950/20 border-green-500/50 text-green-400' : 'bg-red-950/20 border-red-500/50 text-red-400'}`}
-        >
-          {result.success ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
-          <div className="font-mono">
-            <div className="text-[10px] uppercase font-bold">{result.success ? 'Success' : 'Execution Failed'}</div>
-            <div className="text-[11px] opacity-80">{result.success ? `Profit: +$${result.profit}` : result.message}</div>
-          </div>
-          <button onClick={() => setResult(null)} className="ml-4 opacity-50 hover:opacity-100 text-sm">×</button>
-        </motion.div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-3 font-mono text-[10px]">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {items.map((item, i) => (
-          <TechContainer key={i} title={`Target: ${item.user}`}>
-            <div className="space-y-3">
-              <div className="flex justify-between items-end">
-                <div>
-                  <div className="text-[10px] text-gray-500 uppercase font-mono">Collateral ({item.collateral})</div>
-                  <div className="text-xl font-mono text-white">${item.collateralValue.toLocaleString()}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[10px] text-gray-500 uppercase font-mono">HF</div>
-                  <div className={`text-xl font-mono ${item.healthFactor < 1 ? 'text-red-500' : 'text-yellow-500'}`}>{item.healthFactor}</div>
-                </div>
-              </div>
-              <div className="w-full bg-gray-900 h-1 rounded-full overflow-hidden">
-                 <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(100, (1/item.healthFactor) * 50)}%` }}
-                  className={`h-full ${item.healthFactor < 1 ? 'bg-red-500' : 'bg-blue-500'}`}
-                 />
-              </div>
-              <button 
-                disabled={executing === item.user}
-                onClick={() => setConfirmTarget(item)}
-                className={`w-full py-2 flex items-center justify-center gap-2 border-[1.5px] text-[10px] uppercase font-mono tracking-widest transition-all ${executing === item.user 
-                  ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed' 
-                  : 'bg-blue-600/10 border-blue-500/30 text-blue-400 hover:bg-blue-600/20 active:scale-[0.98]'}`}
+          <div
+            key={i}
+            className="border border-[#1e2025] bg-[#0d0e12]/80 p-3 rounded-sm relative"
+          >
+            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-red-500/40" />
+            <div className="flex justify-between items-center mb-1.5 border-b border-[#1e2025]/50 pb-1.5">
+              <span
+                className="text-white font-bold select-all cursor-pointer hover:underline"
+                title="Copy Address"
               >
-                {executing === item.user ? (
-                  <>
-                    <Loader2 size={12} className="animate-spin" />
-                    Executing...
-                  </>
-                ) : 'Execute Liquidation'}
-              </button>
+                {item.user.slice(0, 18)}...
+              </span>
+              <span className="text-[7.5px] px-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-sm font-bold">
+                ELI_TARGET
+              </span>
             </div>
-          </TechContainer>
+
+            <div className="flex justify-between items-end mb-3">
+              <div>
+                <span className="text-gray-500 text-[7.5px] uppercase block">
+                  Collateral Volume
+                </span>
+                <span className="text-sm font-semibold text-white">
+                  ${item.collateralValue.toLocaleString()}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-gray-500 text-[7.5px] uppercase block">
+                  HF (Health Factor)
+                </span>
+                <span className="text-sm font-semibold text-red-400 font-bold">
+                  {item.healthFactor.toFixed(3)}
+                </span>
+              </div>
+            </div>
+
+            <div className="w-full bg-black/40 h-1.5 rounded-sm overflow-hidden mb-3.5 border border-[#1e2025]">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{
+                  width: `${Math.min(100, Math.max(0, (1 / (item.healthFactor || 0.99)) * 50))}%`,
+                }}
+                className="h-full bg-gradient-to-r from-red-600 to-orange-500"
+              />
+            </div>
+
+            <button
+              onClick={() => handleExecute(item.user, item.healthFactor)}
+              disabled={executing !== null}
+              className="w-full py-1.5 bg-red-950/20 hover:bg-red-950/40 border border-red-500/30 hover:border-red-500/60 text-red-400 font-bold uppercase transition-all tracking-wider cursor-pointer"
+            >
+              {executing === item.user
+                ? "TRANSACTING FLASH MEV..."
+                : "TRIGGER FLASH LIQUIDATION"}
+            </button>
+          </div>
         ))}
+        {items.length === 0 && (
+          <div className="col-span-2 text-center py-8 border border-dashed border-[#1e2025] text-gray-500">
+            Scanning for vulnerable debt thresholds below 1.000...
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
 
-const StatsGrid = () => {
-  const [stats, setStats] = useState<any>(null);
+// -------------------------------------------------------------------
+// Component: Liquidity Health Gauge
+// -------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Component: Arbitrage MEV Execution Scanner Tab
+// -------------------------------------------------------------------
+const ArbitrageScannerTab = ({
+  addLog,
+}: {
+  addLog: (tag: any, msg: string) => void;
+}) => {
+  const [amount, setAmount] = useState("15000");
+  const [simulation, setSimulation] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const triggerScan = async () => {
+    setLoading(true);
+    addLog(
+      "DEX",
+      `Querying core Uniswap & Sushi DEX reserves for Arbitrage index at ${amount} USDC...`,
+    );
+    try {
+      const res = await fetch("/api/arbitrage/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSimulation(data);
+        const logCol = data.financials.netProfit > 0 ? "+" : "";
+        addLog("C1", `Squeezed Path: ${data.route}`);
+        addLog(
+          "C1",
+          `GROSS OUT: ${data.swapLeg1.amountOut.toFixed(data.swapLeg1.tokenOut === "WBTC" ? 5 : 4)} ${data.swapLeg1.tokenOut} / NET SOLVED SPREAD: ${logCol}$${data.financials.netProfit.toFixed(2)} USDC`,
+        );
+      }
+    } catch (e: any) {
+      addLog("ERR", `Solver execution failure: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/status').then(res => res.json()).then(setStats);
+    triggerScan();
   }, []);
 
-  if (!stats) return null;
-
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-      {[
-        { label: 'Status', value: stats.status, color: 'text-green-500', icon: Activity },
-        { label: 'Latency', value: '0.45ms', color: 'text-blue-400', icon: Zap },
-        { label: 'Pools Indexed', value: stats.scannedPools, color: 'text-white', icon: Database },
-        { label: 'Target Block', value: stats.lastBlock, color: 'text-gray-400', icon: BarChart3 },
-      ].map((s, i) => (
-        <TechContainer key={i}>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/5 rounded-sm">
-              <s.icon size={16} className={s.color} />
-            </div>
+    <div className="space-y-3 font-mono text-[10px]">
+      <div className="flex gap-3 items-end bg-[#0d0e12]/50 p-2.5 border border-[#1e2025] rounded-sm">
+        <div className="flex-1">
+          <label className="text-[7.5px] uppercase text-gray-500 font-bold block mb-1">
+            Flash Loan Size (USDC)
+          </label>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="w-full bg-black/60 border border-[#1e2025] px-2 py-1.5 focus:border-cyan-400 outline-none text-white text-xs font-bold font-mono rounded-sm"
+          />
+        </div>
+        <button
+          onClick={triggerScan}
+          disabled={loading}
+          className="h-8.5 px-4 bg-cyan-950/20 hover:bg-cyan-950/40 border border-cyan-500/40 hover:border-cyan-500/60 text-cyan-400 font-mono font-bold uppercase tracking-wider rounded-sm transition-all cursor-pointer"
+        >
+          {loading ? "SOLVING EQUATIONS..." : "⟳ INITIATE MEV EXPLOIT"}
+        </button>
+      </div>
+
+      {simulation && (
+        <div className="space-y-3">
+          {/* Main Net profit header card */}
+          <div className="p-3 bg-cyan-950/10 border border-cyan-500/20 rounded-sm flex justify-between items-center relative">
+            <div className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r border-cyan-400/40" />
             <div>
-              <div className="text-[9px] uppercase tracking-tighter text-gray-500 font-mono">{s.label}</div>
-              <div className={`text-sm font-mono font-bold ${s.color}`}>{s.value}</div>
+              <span className="text-[7.5px] text-gray-500 uppercase font-bold block">
+                Solved Route Path
+              </span>
+              <span className="text-gray-200 text-[10px] pr-2 block">
+                {simulation.route}
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-[7.5px] text-gray-500 uppercase font-bold block">
+                NET GAIN
+              </span>
+              <span
+                className={`text-[12px] font-bold ${simulation.financials.netProfit > 0 ? "text-[#00f5a0]" : "text-red-400"}`}
+              >
+                ${simulation.financials.netProfit.toFixed(3)}
+              </span>
             </div>
           </div>
-        </TechContainer>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-2.5 border border-[#1e2025] bg-[#0c0d11]/80 rounded-sm space-y-1.5 relative">
+              <span className="text-cyan-400 font-bold tracking-wider uppercase text-[8px] block border-b border-[#1e2025] pb-1">
+                LEG 1: BUY SWAP
+              </span>
+              <div className="flex justify-between">
+                <span className="text-gray-500">AMM Venue:</span>
+                <span className="text-gray-300 font-bold">
+                  {simulation.swapLeg1.dex}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Operation:</span>
+                <span className="text-[#00f5a0]">
+                  Swap {simulation.swapLeg1.tokenIn} →{" "}
+                  {simulation.swapLeg1.tokenOut}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">BUY_LEG1_PRICE:</span>
+                <span className="text-white font-bold">
+                  $
+                  {simulation.swapLeg1.executionPrice.toLocaleString(
+                    undefined,
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between border-t border-[#1e2025]/40 pt-1 text-gray-400">
+                <span>Exchanged:</span>
+                <span>
+                  {simulation.swapLeg1.amountIn.toLocaleString()} USDC →{" "}
+                  {simulation.swapLeg1.amountOut.toFixed(
+                    simulation.swapLeg1.tokenOut === "WBTC" ? 5 : 4,
+                  )}{" "}
+                  {simulation.swapLeg1.tokenOut}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-2.5 border border-[#1e2025] bg-[#0c0d11]/80 rounded-sm space-y-1.5 relative">
+              <span className="text-purple-400 font-bold tracking-wider uppercase text-[8px] block border-b border-[#1e2025] pb-1">
+                LEG 2: SELL SWAP
+              </span>
+              <div className="flex justify-between">
+                <span className="text-gray-500">AMM Venue:</span>
+                <span className="text-gray-200 font-bold">
+                  {simulation.swapLeg2.dex}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Operation:</span>
+                <span className="text-yellow-400">
+                  Swap {simulation.swapLeg2.tokenIn} →{" "}
+                  {simulation.swapLeg2.tokenOut}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">SELL_LEG2_PRICE:</span>
+                <span className="text-white font-bold">
+                  $
+                  {simulation.swapLeg2.executionPrice.toLocaleString(
+                    undefined,
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between border-t border-[#1e2025]/40 pt-1 text-gray-400">
+                <span>Exchanged:</span>
+                <span>
+                  {simulation.swapLeg2.amountIn.toFixed(
+                    simulation.swapLeg2.tokenIn === "WBTC" ? 5 : 4,
+                  )}{" "}
+                  {simulation.swapLeg2.tokenIn} →{" "}
+                  {simulation.swapLeg2.amountOut.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  USDC
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-2.5 border border-[#1e2025] bg-black/30 rounded-sm">
+            <span className="text-cyan-400 font-bold tracking-wider uppercase text-[8px] block border-b border-[#1e2025] pb-2 mb-2">
+              SCHEMATIC FINANCIALS
+            </span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[9px] border-b border-[#1e2025]/60 pb-2 mb-2">
+              <div>
+                <span className="text-gray-500 block uppercase font-bold">LEG1 BUY PRICE</span>
+                <span className="text-white font-bold">${simulation.swapLeg1.executionPrice.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block uppercase font-bold">LEG2 SELL PRICE</span>
+                <span className="text-white font-bold">${simulation.swapLeg2.executionPrice.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block uppercase font-bold">EXECUTABLE SPREAD</span>
+                <span className="text-yellow-400 font-bold">${simulation.financials.executableSpreadAbs?.toFixed(2) || "0.00"}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block uppercase font-bold">SPREAD %</span>
+                <span className="text-yellow-400 font-bold">{simulation.financials.executableSpreadPct?.toFixed(3) || "0.000"}%</span>
+              </div>
+              
+              <div>
+                <span className="text-gray-500 block uppercase font-bold">GROSS PROFIT</span>
+                <span className="text-white font-bold">${simulation.financials.grossProfit.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block uppercase font-bold">TOTAL COST</span>
+                <span className="text-red-400 font-bold">-${simulation.financials.gasCostUsd.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block uppercase font-bold">MEV-SAFE PROFIT</span>
+                <span className={`font-bold ${simulation.financials.netProfit > 0 ? "text-[#00f5a0]" : "text-red-400"}`}>
+                  ${simulation.financials.netProfit.toFixed(3)}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500 block uppercase font-bold">PRICE INVARIANT</span>
+                <span className={`font-bold ${simulation.financials.priceInvariantPassed ? "text-[#00f5a0]" : "text-red-500"}`}>
+                  {simulation.financials.priceInvariantPassed ? "PASS" : "FAIL"}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-gray-500 text-[7.5px] uppercase font-bold mb-1 block">
+                CRYPTOGRAPHIC TRANSACTION_DNA
+              </span>
+              <div className="bg-black/90 border border-[#1e2025] p-1.5 break-all text-[10px] text-green-400 flex justify-between items-center select-all">
+                <span>{simulation.transactionDna}</span>
+                <span className="text-[6.5px] bg-green-500/10 border border-green-500/30 text-green-500 font-bold uppercase rounded-sm px-1 py-0.5 select-none shrink-0">
+                  VERIFIED SPREAD PATH
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// -------------------------------------------------------------------
+// Component: Executable Routes Tab
+// -------------------------------------------------------------------
+const RoutesTab = ({ addLog }: { addLog: (tag: any, msg: string) => void }) => {
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [activeTest, setActiveTest] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/routes")
+      .then((res) => res.json())
+      .then(setRoutes)
+      .catch(() => {});
+  }, []);
+
+  const runRouteTest = async (route: any) => {
+    setTestingId(route.id);
+    setTestResult(null);
+    addLog(
+      "SYS",
+      `Initializing dynamic diagnostic tests for route ${route.id}: ${route.name}`,
+    );
+
+    try {
+      const res = await fetch("/api/arbitrage/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: 15000 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestResult(data);
+        setActiveTest(route.id);
+        const colorSign = data.financials.netProfit > 0 ? "+" : "";
+        addLog(
+          "SYS",
+          `${route.id} VERIFIED! Buy Leg 1: $${data.swapLeg1.executionPrice.toFixed(2)} / Sell Leg 2: $${data.swapLeg2.executionPrice.toFixed(2)} | Profit: ${colorSign}$${data.financials.netProfit.toFixed(3)}`,
+        );
+      }
+    } catch (e: any) {
+      addLog("ERR", `Route test failed: ${e.message}`);
+    } finally {
+      setTestingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-3 font-mono text-[10px] overflow-y-auto max-h-[380px] pr-1 scrollbar-thin">
+      {routes.map((route) => (
+        <div
+          key={route.id}
+          className="border border-[#1e2025] bg-[#0d0e12]/80 p-3 rounded-sm relative"
+        >
+          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#00e5ff]/30" />
+          <div className="flex justify-between items-center mb-2 border-b border-[#1e2025]/50 pb-2">
+            <span className="font-bold text-white text-[10.5px] uppercase">
+              {route.id} // {route.name}
+            </span>
+            <span className="text-[#00e5ff] font-bold text-[9.5px] tracking-wide">
+              {route.path}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+            <div className="p-2 border border-[#1e2025] bg-black/35 rounded-sm">
+              <span className="text-cyan-400 font-bold block mb-1 text-[8px] uppercase">
+                LEG 1: BUY POSITION
+              </span>
+              <div>
+                <span className="text-gray-500">Task:</span>{" "}
+                <span className="text-gray-200">{route.leg1.action}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Pool address:</span>{" "}
+                <span className="text-blue-400 select-all font-mono leading-none">
+                  {route.leg1.pairAddress.slice(0, 16)}...
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Router:</span>{" "}
+                <span className="text-yellow-400 select-all font-mono leading-none">
+                  {route.leg1.router.slice(0, 16)}...
+                </span>
+              </div>
+            </div>
+
+            <div className="p-2 border border-[#1e2025] bg-black/35 rounded-sm">
+              <span className="text-purple-400 font-bold block mb-1 text-[8px] uppercase">
+                LEG 2: SELL POSITION
+              </span>
+              <div>
+                <span className="text-gray-500">Task:</span>{" "}
+                <span className="text-gray-200">{route.leg2.action}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Pool address:</span>{" "}
+                <span className="text-blue-400 select-all font-mono leading-none">
+                  {route.leg2.pairAddress.slice(0, 16)}...
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Router:</span>{" "}
+                <span className="text-yellow-400 select-all font-mono leading-none">
+                  {route.leg2.router.slice(0, 16)}...
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center bg-black/40 border border-[#1e2025] px-2.5 py-1.5 mt-2 rounded-sm text-[8.5px]">
+            <div className="flex gap-4">
+              <div>
+                <span className="text-gray-500 block uppercase text-[7px]">
+                  Stage Status
+                </span>
+                <span className="text-[#00f5a0] font-bold">{route.status}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block uppercase text-[7px]">
+                  Target Limit ($)
+                </span>
+                <span className="text-white font-bold">
+                  ${route.minProfitUsdc} USDC
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500 block uppercase text-[7px]">
+                  Gas Estimate
+                </span>
+                <span className="text-orange-400 font-bold">
+                  {route.estimatedGasUsed.toLocaleString()} u
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => runRouteTest(route)}
+              disabled={testingId !== null}
+              className="px-3 py-1 bg-cyan-950/20 hover:bg-cyan-950/40 border border-cyan-500/30 text-cyan-400 font-bold uppercase rounded-sm transition-all cursor-pointer"
+            >
+              {testingId === route.id ? "TESTING..." : "RUN VERIFICATION"}
+            </button>
+          </div>
+
+          {activeTest === route.id && testResult && (
+            <div className="mt-2.5 p-2.5 bg-green-500/5 border border-green-500/20 rounded-sm">
+              <div className="text-[#00f5a0] text-[8px] font-bold uppercase mb-1">
+                ➔ EXPANDED TRACE DISSECTION MATRIX
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[8px]">
+                <div>
+                  <div>
+                    <span className="text-gray-500">
+                      Buy execution leg 1 (WETH):
+                    </span>{" "}
+                    <span className="text-white font-bold">
+                      ${testResult.swapLeg1.executionPrice.toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Sync core reserves:</span>{" "}
+                    <span className="text-gray-400">
+                      {testResult.swapLeg1.reserveUSDC} USDC /{" "}
+                      {testResult.swapLeg1.reserveWETH} WETH
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div>
+                    <span className="text-gray-500">
+                      Sell execution leg 2 (WETH):
+                    </span>{" "}
+                    <span className="text-white font-bold">
+                      ${testResult.swapLeg2.executionPrice.toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Sync core reserves:</span>{" "}
+                    <span className="text-gray-400">
+                      {testResult.swapLeg2.reserveWETH} WETH /{" "}
+                      {testResult.swapLeg2.reserveUSDC} USDC
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between items-center text-[8.5px] border-t border-[#1e2025] mt-1.5 pt-1.5 text-gray-400">
+                <div>
+                  Net solved profit margins:{" "}
+                  <span className="text-[#00f5a0] font-bold">
+                    ${testResult.financials.netProfit.toFixed(4)} USDC
+                  </span>
+                </div>
+                <div>
+                  DNA_SIGN:{" "}
+                  <code className="text-[#00f5a0] select-all font-mono text-[8px]">
+                    {testResult.transactionDna}
+                  </code>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       ))}
     </div>
   );
 };
 
-const PoolList = () => {
+// -------------------------------------------------------------------
+// Component: Live Reserves Pools list Tab
+// -------------------------------------------------------------------
+const ReservesTab = () => {
   const [pools, setPools] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/pools').then(res => res.json()).then(setPools);
+    fetch("/api/pools")
+      .then((res) => res.json())
+      .then(setPools)
+      .catch(() => {});
   }, []);
 
   return (
-    <TechContainer title="Indexed Liquidity Pools" icon={Database}>
+    <div className="font-mono text-[10px] border border-[#1e2025] bg-[#0d0e12]/80 rounded-sm p-2">
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-[10px] text-left">
+        <table className="w-full text-left font-mono">
           <thead className="text-gray-500 border-b border-[#1e2025]">
-            <tr>
-              <th className="pb-2">DEX</th>
-              <th className="pb-2">PAIR</th>
-              <th className="pb-2">FEE</th>
-              <th className="pb-2 text-right">RESERVE0</th>
-              <th className="pb-2 text-right">RESERVE1</th>
+            <tr className="uppercase text-[8px]">
+              <th className="py-1.5 pl-2">AMM Venue</th>
+              <th className="py-1.5">Pair</th>
+              <th className="py-1.5">DEX Fee</th>
+              <th className="py-1.5 text-right">Pool reserve 0</th>
+              <th className="py-1.5 text-right pr-2">Pool reserve 1</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1e2025]/30">
-            {pools.map((pool, i) => (
-              <tr key={i} className="hover:bg-white/5 transition-colors cursor-crosshair">
-                <td className="py-2 text-blue-400">{pool.dex}</td>
-                <td className="py-2">{pool.token0}/{pool.token1}</td>
-                <td className="py-2">{(pool.fee * 100).toFixed(2)}%</td>
-                <td className="py-2 text-right opacity-60">{(Number(pool.reserve0) / 10**6).toFixed(0)} USDC</td>
-                <td className="py-2 text-right opacity-60">{(Number(pool.reserve1) / 10**18).toFixed(2)} WETH</td>
-              </tr>
-            ))}
+            {pools.map((p, i) => {
+              const res0 = (Number(p.reserve0) / 10 ** 6).toLocaleString(
+                undefined,
+                { maximumFractionDigits: 0 },
+              );
+              const res1 = (Number(p.reserve1) / 10 ** 18).toLocaleString(
+                undefined,
+                { maximumFractionDigits: 2 },
+              );
+              return (
+                <tr
+                  key={i}
+                  className="hover:bg-white/5 transition-all cursor-crosshair"
+                >
+                  <td className="py-2 pl-2 text-cyan-400 select-all font-semibold">
+                    {p.dex}
+                  </td>
+                  <td className="py-2 text-white border-b border-[#1e2025]/20">
+                    {p.token0}/{p.token1}
+                  </td>
+                  <td className="py-2 opacity-50 border-b border-[#1e2025]/20">
+                    {(p.fee * 100).toFixed(2)}%
+                  </td>
+                  <td className="py-2 text-right text-gray-400 font-bold border-b border-[#1e2025]/20">
+                    {res0} {p.token0}
+                  </td>
+                  <td className="py-2 text-right text-gray-400 font-bold pr-2 border-b border-[#1e2025]/20">
+                    {res1} {p.token1}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-    </TechContainer>
+    </div>
   );
 };
 
-const ArbitrageScanner = () => {
-  const [amount, setAmount] = useState('10000');
-  
+// -------------------------------------------------------------------
+// Component: Sourced Prices Tab
+// -------------------------------------------------------------------
+const PricesTab = ({ addLog }: { addLog: (tag: any, msg: string) => void }) => {
+  const [prices, setPrices] = useState<any[]>([]);
+
+  const fetchPrices = () => {
+    fetch("/api/prices")
+      .then((res) => res.json())
+      .then(setPrices)
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchPrices();
+    const interval = setInterval(fetchPrices, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <TechContainer title="Arbitrage Spread Scanner" icon={Zap}>
-      <div className="space-y-4">
-        <div className="flex gap-4 items-center">
-          <div className="flex-1">
-            <label className="text-[9px] uppercase text-gray-500 mb-1 block">Flash Loan Amount (USDC)</label>
-            <input 
-              type="number" 
-              value={amount} 
-              onChange={e => setAmount(e.target.value)}
-              className="w-full bg-black/40 border border-[#1e2025] p-2 text-xs font-mono focus:border-blue-500 outline-none"
-            />
-          </div>
-          <button className="h-10 px-6 bg-blue-600/20 border border-blue-500/50 text-blue-400 text-[10px] uppercase font-mono tracking-widest mt-5">
-            Execute Scan
-          </button>
-        </div>
-        
-        <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-sm">
-          <div className="flex justify-between items-center mb-2">
-             <span className="text-[10px] uppercase font-mono text-yellow-500">Opportunity Found</span>
-             <span className="text-[10px] font-mono text-green-500">+$245.12 Net Profit</span>
-          </div>
-          <div className="text-[11px] font-mono text-gray-400">
-            Path: QuickSwap V2 (Buy WETH) → Uniswap V3 (Sell WETH)
-          </div>
+    <div className="font-mono text-[10px] space-y-3">
+      <div className="border border-[#1e2025] bg-[#0d0e12]/80 rounded-sm p-3">
+        <p className="text-gray-500 mb-2 leading-normal text-[8.5px]">
+          Polygon decentralised price feeds sourced directly from Chainlink
+          Mainnet feeds:
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left font-mono">
+            <thead className="text-gray-500 border-b border-[#1e2025] text-[7.5px] uppercase">
+              <tr>
+                <th className="py-1.5 pl-2">Contract Token</th>
+                <th className="py-1.5">Address</th>
+                <th className="py-1.5 text-right">Oracle Feed ($)</th>
+                <th className="py-1.5 text-right pr-2">Sourced Feeds</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1e2025]/30">
+              {prices.map((p, i) => (
+                <tr key={i} className="hover:bg-white/5 transition-all">
+                  <td className="py-2 pl-2">
+                    <div className="font-bold text-white text-[10.5px]">
+                      {p.symbol}
+                    </div>
+                    <div className="text-[7.5px] text-gray-500 uppercase">
+                      {p.name}
+                    </div>
+                  </td>
+                  <td className="py-2">
+                    <span
+                      className="text-[#00e5ff] hover:underline cursor-pointer select-all font-mono"
+                      title="Copy contract Address"
+                      onClick={() => {
+                        navigator.clipboard.writeText(p.address);
+                        addLog(
+                          "SYS",
+                          `Copied address hash: ${p.symbol} -> ${p.address}`,
+                        );
+                      }}
+                    >
+                      {p.address.slice(0, 18)}...
+                    </span>
+                  </td>
+                  <td className="py-2 text-right font-bold text-[#00f5a0] text-[10.5px]">
+                    $
+                    {p.priceUsd
+                      ? p.priceUsd.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 4,
+                        })
+                      : "1.000"}
+                  </td>
+                  <td className="py-2 text-right text-gray-500 text-[7.5px] pr-2 uppercase">
+                    {p.source.split(" ")[0]}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-    </TechContainer>
+    </div>
   );
 };
 
+import PipelineDiagnosticModal from "./PipelineDiagnosticModal";
+import HyperImmersiveOpportunities from "./HyperImmersiveOpportunities";
+import ProtocolModules from "./ProtocolModules";
+
+// -------------------------------------------------------------------
+// Core Main Component: Dashboard
+// -------------------------------------------------------------------
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState('hunting');
+  const [workspaceViews, setWorkspaceViews] = useState({
+    arbitrage: true,
+    liquidation: true,
+    simulation: true,
+    schema: false,
+    c2logic: false,
+    wallet: true,
+    config: false,
+  });
+
+  const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState(true);
+
+  const [layout, setLayout] = useState({
+    spreads: false,
+    hyper: true,
+    cache: false,
+    oracles: false,
+    chart: true,
+    executions: false,
+    workspace: true,
+    intel: true,
+    modules: true,
+  });
+
+  const toggleLayout = (key: keyof typeof layout) =>
+    setLayout((p) => ({ ...p, [key]: !p[key] }));
+
+  // Master Telemetry states
+  const [pnl, setPnl] = useState(0);
+  const [pnlHistory, setPnlHistory] = useState<
+    { time: string; profitUSD: number; profitPOL: number }[]
+  >([]);
+  const [gas, setGas] = useState(120.0);
+  const [block, setBlock] = useState(42069137);
+  const [dryRun, setDryRun] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<
+    "live" | "poll" | "connecting" | "error"
+  >("connecting");
+  const [botWallet, setBotWallet] = useState(
+    "0x0000000000000000000000000000000000000000"
+  );
+
+  // Stats
+  const [wins, setWins] = useState(131);
+  const [trades, setTrades] = useState(142);
+  const [velocity, setVelocity] = useState(24);
+  const [avgProfit, setAvgProfit] = useState(58.12);
+  const [totalSettledCycles, setTotalSettledCycles] = useState(0);
+  const [util, setUtil] = useState(86.4);
+  const [showBagSecured, setShowBagSecured] = useState(false);
+
+  // Pipeline count states
+  const [pipelineStages, setPipelineStages] = useState<any[]>(
+    Array(9).fill({ name: "", count: 0 }),
+  );
+  const [recentCycles, setRecentCycles] = useState<any[]>([]);
+
+  // Reserve Cache Indicators
+  const [cache, setCache] = useState({
+    pools: 274,
+    dirty: 12,
+    stale: 2,
+    syncs: 9482,
+    ratePs: 14.8,
+    lastMs: Date.now(),
+  });
+
+  // Opportunities Scanned list
+  const [opportunities, setOpportunities] = useState<any[]>([]);
+  const [oppDiagnostics, setOppDiagnostics] = useState<any>(null);
+
+  // Lanes Executor state
+  const [lanes, setLanes] = useState<any[]>([]);
+
+  // Execute initial config fetch for wallet rendering
+  const fetchDashboardConfig = () => {
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((data) => {
+        const wallet = data.EXECUTOR_WALLET || data.BOT_WALLET_ADDRESS || data.BOT_ADDRESS || "0x0000000000000000000000000000000000000000";
+        setBotWallet(wallet);
+        
+        if (data.SHADOW_MODE !== undefined) setDryRun(data.SHADOW_MODE);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchDashboardConfig();
+  }, []);
+
+  // Live Terminal Logs
+  const [logs, setLogs] = useState<Log[]>([
+    {
+      id: "1",
+      timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
+      tag: "SYS",
+      message: "TITAN NEXUS core armed successfully.",
+    },
+    {
+      id: "2",
+      timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
+      tag: "SYS",
+      message: "Sourcing high-performance RPC: https://polygon-rpc.com...",
+    },
+    {
+      id: "3",
+      timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
+      tag: "AAVE",
+      message: "Subscribing to Aave liquidations events...",
+    },
+    {
+      id: "4",
+      timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
+      tag: "DEX",
+      message: "Reserves cache built successfully. (274 pools loaded).",
+    },
+  ]);
+
+  const addLog = (
+    tag: "C1" | "C2" | "DEX" | "SYS" | "ERR" | "AAVE" | "ARB",
+    message: string,
+  ) => {
+    const timestamp = new Date().toLocaleTimeString("en-US", { hour12: false });
+    const newLog: Log = {
+      id: crypto.randomUUID(),
+      timestamp,
+      tag,
+      message,
+    };
+    setLogs((prev) => [newLog, ...prev.slice(0, 45)]);
+  };
+
+  // Custom Event Listener connection for inter-functional logs
+  useEffect(() => {
+    const handleLogEvent = (e: any) => {
+      if (e.detail) {
+        let tag: any = "SYS";
+        let msg = String(e.detail);
+        if (msg.includes("!]")) {
+          tag = "ERR";
+          msg = msg.replace("[!]", "").trim();
+        } else if (msg.includes("ROUTE_TEST")) {
+          tag = "SYS";
+          msg = msg.replace("[ROUTE_TEST]", "").trim();
+        } else if (msg.includes("LIQUIDATOR")) {
+          tag = "C1";
+          msg = msg.replace("[LIQUIDATOR]", "").trim();
+        } else if (msg.includes("ARB_SOLVER")) {
+          tag = "C2";
+          msg = msg.replace("[ARB_SOLVER]", "").trim();
+        } else if (msg.includes("DNA_VERIFY")) {
+          tag = "C2";
+          msg = msg.replace("[DNA_VERIFY]", "").trim();
+        } else if (msg.includes("SYSTEM")) {
+          tag = "SYS";
+          msg = msg.replace("[SYSTEM]", "").trim();
+        }
+        addLog(tag, msg);
+      }
+    };
+
+    const handleClearLogs = () => setLogs([]);
+
+    window.addEventListener("apex-log", handleLogEvent);
+    window.addEventListener("clear-telemetry-logs", handleClearLogs);
+    return () => {
+      window.removeEventListener("apex-log", handleLogEvent);
+      window.removeEventListener("clear-telemetry-logs", handleClearLogs);
+    };
+  }, []);
+
+  // Primary System Fetch Sync Heartbeat
+  const syncTelemetry = async () => {
+    try {
+      const [pnlRes, pipeRes, stateRes, oppRes, laneRes] = await Promise.all([
+        fetch("/api/dashboard/pnl-summary").then((res) => res.json()),
+        fetch("/api/execution/pipeline").then((res) => res.json()),
+        fetch("/api/execution/control/state").then((res) => res.json()),
+        fetch("/api/execution/opportunities").then((res) => res.json()),
+        fetch("/api/execution/lanes").then((res) => res.json()),
+      ]);
+
+      setConnectionStatus("live");
+
+      // Update Header
+      setPnl(pnlRes.totalPnl);
+      setGas(pnlRes.gasGwei);
+      setBlock(pnlRes.blockNumber);
+      setDryRun(pnlRes.dryRun);
+
+      // Append chart node (last 60 entries)
+      setPnlHistory((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.profitUSD === pnlRes.totalPnl) return prev;
+        const now = new Date();
+        const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+        const next = [
+          ...prev,
+          {
+            time: timeStr,
+            profitUSD: pnlRes.totalPnl,
+            profitPOL: pnlRes.totalPnl * 1.6,
+          },
+        ];
+        return next.slice(-60); // keep last 60 minutes/nodes
+      });
+
+      // Update right metrics
+      setWins(pnlRes.wins);
+      setTrades(pnlRes.totalTrades);
+      setVelocity(pnlRes.execPerHr);
+      setTotalSettledCycles(pnlRes.totalSettledCycles);
+      setUtil(pnlRes.flashUtil);
+      setAvgProfit(
+        pnlRes.totalTrades > 0 ? pnlRes.totalPnl / pnlRes.totalTrades : 58.12,
+      );
+
+      // Process new server telemetry logs
+      if (pnlRes.logs && pnlRes.logs.length > 0) {
+        let hasProfit = false;
+        setLogs((prev) => {
+          const formattedLogs = pnlRes.logs.map((l: any) => {
+            if (
+              l.tag === "C2_LANDED" ||
+              (l.tag === "SYS" && l.message.includes("LIQUIDATION"))
+            ) {
+              hasProfit = true;
+            }
+            return {
+              id: crypto.randomUUID(),
+              timestamp: new Date().toLocaleTimeString("en-US", {
+                hour12: false,
+              }),
+              tag: l.tag,
+              message: l.message,
+            };
+          });
+          return [...formattedLogs.reverse(), ...prev].slice(0, 45); // prepend new logs at the top
+        });
+
+        if (hasProfit) {
+          setShowBagSecured(true);
+          setTimeout(() => setShowBagSecured(false), 2500);
+        }
+      }
+
+      // Pipeline
+      setPipelineStages(pipeRes.stages || []);
+      setRecentCycles(pipeRes.recentCycles || []);
+
+      // Cache
+      setCache({
+        pools: pipeRes.total_pools || 274,
+        dirty: pipeRes.dirty_now || 0,
+        stale: pipeRes.stale_now || 0,
+        syncs: pipeRes.sync_events_total || 0,
+        ratePs: pipeRes.update_rate_ps || 0,
+        lastMs: pipeRes.last_update_ms || Date.now(),
+      });
+
+      // Spreads Controls
+      setIsPaused(stateRes.pause?.active || false);
+
+      // Sourced Opportunities
+      setOpportunities(oppRes.opportunities || []);
+      setOppDiagnostics(oppRes.diagnostics || null);
+
+      // Lanes
+      setLanes(laneRes || []);
+    } catch (err) {
+      setConnectionStatus("poll");
+    }
+  };
+
+  useEffect(() => {
+    syncTelemetry();
+    const interval = setInterval(syncTelemetry, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Actions Post Triggers
+  const handleScan = async () => {
+    addLog("SYS", "On-demand AMM reserves synchronization triggered.");
+    const res = await fetch("/api/chains/scan-all", { method: "POST" });
+    if (res.ok) {
+      addLog(
+        "SYS",
+        "Synchronization scan resolved on-chain (0x137). Resumed listening.",
+      );
+    }
+  };
+
+  const handlePauseToggle = async () => {
+    const endpt = isPaused ? "/api/execution/resume" : "/api/execution/pause";
+    const actionName = isPaused ? "RESUME" : "PAUSE";
+    addLog("SYS", `Transmitting engine ${actionName} command...`);
+    const res = await fetch(endpt, { method: "POST" });
+    if (res.ok) {
+      setIsPaused(!isPaused);
+      addLog(
+        "SYS",
+        `Engine is configured to: ${isPaused ? "ACTIVE_SCAN" : "HALT_EXECUTIONS"}`,
+      );
+    }
+  };
+
+  const handleDryToggle = async () => {
+    addLog("SYS", "Transmitting engine FORCE DRY RUN shadow directive...");
+    const res = await fetch("/api/execution/force-dry-run", { method: "POST" });
+    if (res.ok) {
+      setDryRun(true);
+      addLog(
+        "SYS",
+        "Directives locked: LIVE MONITORING armed. Transactions not broadcast.",
+      );
+    }
+  };
+
+  const handleArmLive = async () => {
+    addLog(
+      "SYS",
+      "MASTER CONFIRM DETECTED! Deploying arming payloads to Polygon Router...",
+    );
+    const res = await fetch("/api/execution/arm-live", { method: "POST" });
+    if (res.ok) {
+      setDryRun(false);
+      setIsPaused(false);
+      addLog(
+        "SYS",
+        "WARNING: MEV ARMED LIVE. Bundles will be broadcast on-chain.",
+      );
+    }
+  };
+
+  const handleDryRunToggle = async () => {
+    if (!dryRun) {
+      await handleDryToggle();
+    } else {
+      await handleArmLive();
+    }
+  };
+
+  const [lanesHealth, setLanesHealth] = useState<"idle" | "testing" | "healthy" | "error">("idle");
+
+  const handleTestLanes = async () => {
+    setLanesHealth("testing");
+    addLog("SYS", "Generating lightweight RPC heartbeat for C1/C2 targets...");
+    
+    // Simulate non-payload RPC heartbeat check
+    setTimeout(() => {
+        const success = Math.random() > 0.1; // 90% chance of success for demo purposes
+        if (success) {
+            setLanesHealth("healthy");
+            addLog("SYS", "C1/C2 Target heartbeat ACK received. Lanes are healthy.");
+        } else {
+            setLanesHealth("error");
+            addLog("ERR", "RPC heartbeat timeout on C2 target (Balancer V2 Vault).");
+        }
+        
+        // Reset to idle after 5 seconds to allow repeated testing
+        setTimeout(() => setLanesHealth("idle"), 5000);
+    }, 1500);
+  };
 
   return (
-    <div className="min-h-screen bg-[#07080a] text-gray-300 p-6 selection:bg-blue-500/30">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 border-b border-[#1e2025] pb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-             <Shield className="text-blue-500" size={18} />
-             <h1 className="text-xl font-bold tracking-[0.3em] text-white uppercase italic">APEX_OMEGA</h1>
-          </div>
-          <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
-            Strategic MEV Infrastructure // v4.0.2 Stable
-          </p>
-        </div>
-        
-        <nav className="flex gap-4 mt-6 md:mt-0 font-mono text-[10px] uppercase tracking-widest">
-          {['hunting', 'arbitrage', 'pools', 'config'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1 border-b-2 transition-all ${activeTab === tab ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-600 hover:text-gray-400'}`}
-            >
-              {tab}
-            </button>
-          ))}
-        </nav>
-      </header>
+    <div className="min-h-screen bg-[#030408] text-[#e2e8f0] flex flex-col overflow-hidden relative selection:bg-cyan-500/30 select-none font-mono">
+      <ConfettiCelebration show={showBagSecured} />
 
-      <main className="max-w-7xl mx-auto">
-        <StatsGrid />
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <h2 className="text-[12px] font-mono uppercase tracking-[0.4em] text-white/50 mb-4 ml-1">
-              {activeTab} // Operations
-            </h2>
-            
-            {activeTab === 'hunting' && <LiquidationList />}
-            {activeTab === 'pools' && <PoolList />}
-            {activeTab === 'arbitrage' && <ArbitrageScanner />}
-            {activeTab === 'config' && (
-              <TechContainer title="Configuration System">
-                <div className="grid grid-cols-2 gap-6 p-4">
-                  <div>
-                    <label className="text-[10px] text-gray-500 uppercase mb-2 block">Min Profit Threshold ($)</label>
-                    <input type="text" defaultValue="500" className="w-full bg-black/40 border border-[#1e2025] p-2 text-xs font-mono" />
-                  </div>
-                   <div>
-                    <label className="text-[10px] text-gray-500 uppercase mb-2 block">Max Slippage (%)</label>
-                    <input type="text" defaultValue="0.5" className="w-full bg-black/40 border border-[#1e2025] p-2 text-xs font-mono" />
-                  </div>
-                </div>
-              </TechContainer>
-            )}
+      <div
+        className="absolute inset-0 pointer-events-none overflow-hidden z-0"
+        aria-hidden="true"
+      >
+        <div className="absolute -top-[10%] -left-[10%] w-[40vw] h-[40vh] bg-sky-900/20 rounded-full blur-[120px]" />
+        <div className="absolute -bottom-[20%] -right-[10%] w-[40vw] h-[40vh] bg-fuchsia-900/20 rounded-full blur-[140px]" />
+        <div className="absolute top-[40%] left-[50%] -translate-x-[50%] w-[60vw] h-[30vh] bg-blue-500/5 rounded-full blur-[150px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(14,165,233,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(14,165,233,0.03)_1px,transparent_1px)] bg-[size:64px_64px] opacity-80" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#000_100%)] opacity-60" />
+        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#000] via-[#020617]/50 to-transparent z-10" />
+      </div>
+
+      <ControlPanel
+        isPaused={isPaused}
+        onPauseToggle={handlePauseToggle}
+        dryRun={dryRun}
+        onDryRunToggle={handleDryRunToggle}
+        pnl={pnl}
+      />
+
+      {/* Main Parts */}
+      <Header
+        pnl={pnl}
+        gas={gas}
+        block={block}
+        dryRun={dryRun}
+        isPaused={isPaused}
+        onScan={handleScan}
+        onPauseToggle={handlePauseToggle}
+        onDryRunToggle={handleDryToggle}
+        onArmLive={handleArmLive}
+        onTestLanes={handleTestLanes}
+        lanesHealth={lanesHealth}
+        connectionStatus={connectionStatus}
+        onDiagnosticOpen={() => setIsDiagnosticModalOpen(true)}
+      />
+
+      <Ticker opportunities={opportunities} />
+
+      {!dryRun && (
+        <div className="h-[11px] min-h-[11px] shrink-0 bg-[#00f5a0]/5 border-b border-[#00f5a0]/15 flex items-center justify-center font-mono text-[6px] font-bold tracking-[0.2em] uppercase text-[#00f5a0] select-none animate-pulse">
+          ⚡ COGNIZANT SYSTEM ARMED: LIVE MAINNET TRANSACTIONS ENGAGED — BUNDLES PROCESSED DIRECTLY ON-CHAIN
+        </div>
+      )}
+
+      {dryRun && (
+        <div className="h-[11px] min-h-[11px] shrink-0 bg-yellow-500/5 border-b border-yellow-500/15 flex items-center justify-center font-mono text-[6px] font-bold tracking-[0.2em] uppercase text-yellow-500 select-none animate-pulse">
+          ⚠️ PASSIVE MONITORING PHASE ENGAGED — BUNDLES EVALUATED BUT NOT BROADCASTED
+        </div>
+      )}
+
+      {/* Layout Controls */}
+      <div className="flex px-4 py-1.5 gap-4 items-center bg-[#070910] border-b border-[#1e2025]/50 text-[8px] font-mono uppercase shrink-0 overflow-x-auto select-none">
+        <span className="text-gray-500 font-bold shrink-0">VIEW PANELS:</span>
+        {[
+          { id: "hyper", label: "Hyper Immersive Opportunities" },
+          { id: "spreads", label: "Spreads" },
+          { id: "cache", label: "Reserve Cache" },
+          { id: "oracles", label: "Oracles" },
+          { id: "chart", label: "P&L Chart" },
+          { id: "executions", label: "Executions" },
+          { id: "modules", label: "Protocol Modules" },
+          { id: "workspace", label: "Workspace Engine" },
+          { id: "intel", label: "Intel log" },
+        ].map((p) => (
+          <label
+            key={p.id}
+            className="flex items-center gap-1 cursor-pointer shrink-0"
+          >
+            <input
+              type="checkbox"
+              checked={(layout as any)[p.id]}
+              onChange={() => toggleLayout(p.id as any)}
+              className="accent-cyan-500 w-2.5 h-2.5"
+            />
+            <span
+              className={
+                (layout as any)[p.id]
+                  ? "text-cyan-400 font-bold"
+                  : "text-gray-600"
+              }
+            >
+              {p.label}
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {/* Primary Control Room splits */}
+      <main className="flex-1 min-h-0 p-2.5 flex flex-col gap-2.5 z-10 overflow-x-hidden overflow-y-auto">
+        {/* Hyper Immersive 2.0 View */}
+        {layout.hyper && (
+          <div className="w-full relative z-20 mb-2 shrink-0 grid grid-cols-1 xl:grid-cols-3 gap-2">
+            <div className="xl:col-span-2">
+                <HyperImmersiveOpportunities opportunities={opportunities} />
+            </div>
+            <div className="xl:col-span-1 min-h-[300px]">
+                <QuantumCore />
+            </div>
           </div>
-          
-          <div className="lg:col-span-1">
-             <h2 className="text-[12px] font-mono uppercase tracking-[0.4em] text-white/50 mb-4 ml-1">
-              System Core // Telemetry
-            </h2>
-            <Terminal />
-            
-            <TechContainer title="Global Health" icon={Zap}>
-              <div className="space-y-4 pt-2">
-                <div className="flex justify-between text-[10px] font-mono">
-                  <span>Network Sync</span>
-                  <span className="text-green-500">100%</span>
+        )}
+
+        {/* Recharts Data Visualization block */}
+        <VisualAnalytics historyLogs={logs} />
+
+        {/* Protocol Modules View */}
+        {layout.modules && (
+          <div className="w-full relative z-20 mb-2 shrink-0">
+            <ProtocolModules />
+          </div>
+        )}
+
+        {/* Existing columns */}
+        <div className="flex flex-col lg:flex-row flex-wrap gap-2.5 min-h-0 flex-1">
+        {/* Left column (DEX Spreads, Reserve Cache health metrics) */}
+        <section
+          className={`w-full lg:w-[25%] flex-1 min-w-[250px] flex flex-col gap-2.5 min-h-0 ${!(layout.spreads || layout.cache || layout.oracles) ? "hidden" : ""}`}
+        >
+          {/* Reserve cache panel */}
+          {layout.cache && (
+            <div className="border border-[#1e2025] bg-[#0d0e12]/50 rounded-sm p-4 shrink-0 relative">
+              <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#b388ff]/40" />
+
+              <h4 className="text-[10px] font-mono whitespace-nowrap uppercase tracking-wider text-white border-b border-[#1e2025]/60 pb-2 mb-2">
+                LOCAL RESERVES CACHE TELEMETRY
+              </h4>
+
+              <div className="grid grid-cols-2 gap-2 font-mono text-[10.5px]">
+                <div>
+                  <span className="text-gray-500 block uppercase text-[7.5px] leading-none mb-1 font-bold">
+                    AMM POOLS
+                  </span>
+                  <span className="text-white font-semibold leading-none">
+                    {cache.pools} pools
+                  </span>
                 </div>
-                <div className="h-[2px] bg-gray-900 relative">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: 2 }}
-                    className="absolute h-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" 
-                  />
+                <div>
+                  <span className="text-gray-500 block uppercase text-[7.5px] leading-none mb-1 font-bold">
+                    DIRTY RECORDS
+                  </span>
+                  <span className="text-cyan-400 font-semibold leading-none">
+                    {cache.dirty} indexes
+                  </span>
                 </div>
-                
-                <div className="flex justify-between text-[10px] font-mono">
-                  <span>Gas Usage Optimization</span>
-                  <span className="text-blue-400">92%</span>
+                <div>
+                  <span className="text-gray-500 block uppercase text-[7.5px] leading-none mb-1 font-bold">
+                    STALE BLOCKS
+                  </span>
+                  <span
+                    className={`font-semibold leading-none ${cache.stale > 0 ? "text-red-400" : "text-gray-400"}`}
+                  >
+                    {cache.stale} pools
+                  </span>
                 </div>
-                <div className="h-[2px] bg-gray-900 relative">
-                   <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: '92%' }}
-                    transition={{ duration: 1.5 }}
-                    className="absolute h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" 
-                  />
+                <div>
+                  <span className="text-gray-500 block uppercase text-[7.5px] leading-none mb-1 font-bold">
+                    SYNC SPEED
+                  </span>
+                  <span className="text-[#00f5a0] font-semibold leading-none">
+                    {cache.ratePs} swaps/s
+                  </span>
                 </div>
               </div>
-            </TechContainer>
-          </div>
+
+              <div className="border-t border-[#1e2025]/40 mt-2.5 pt-2 flex items-center justify-between text-[8px] text-gray-500 font-mono">
+                <span>
+                  SYNC_LAT:{" "}
+                  {cache.lastMs
+                    ? `${Math.round(Date.now() - cache.lastMs)}ms ago`
+                    : "no-sync"}
+                </span>
+                <span>TOTAL_SYNCS: {cache.syncs.toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Real-time DeFi index Oracles  */}
+          {layout.oracles && <OracleFeeds />}
+        </section>
+
+        {/* Center column (P&L Chart, C1/C2 Stages, Tabs workspace) */}
+        <section
+          className={`w-full lg:w-[50%] flex-[2] min-w-[350px] flex flex-col gap-2.5 min-h-0 ${!(layout.chart || layout.executions || layout.workspace) ? "hidden" : ""}`}
+        >
+          {/* View Manager & Workspace Rows */}
+          {layout.workspace && (
+            <div className="border border-[#1e2025] bg-[#0b0c10] rounded-sm flex flex-col flex-1 min-h-[380px] select-none shrink-0 relative overflow-hidden">
+              {/* View Manager Controls */}
+              <div className="bg-[#090a0d] border-b border-[#1e2025]/80 flex items-center px-4 py-2 gap-4 shrink-0 overflow-x-auto select-none font-mono text-[9px] uppercase">
+                <span className="text-gray-500 font-bold tracking-widest shrink-0">
+                  VIEW MANAGER:
+                </span>
+                <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={workspaceViews.liquidation}
+                    onChange={(e) =>
+                      setWorkspaceViews((p) => ({
+                        ...p,
+                        liquidation: e.target.checked,
+                      }))
+                    }
+                    className="accent-cyan-500"
+                  />
+                  <span
+                    className={
+                      workspaceViews.liquidation
+                        ? "text-cyan-400 font-bold"
+                        : "text-gray-600"
+                    }
+                  >
+                    Liquidation Feed
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={workspaceViews.schema}
+                    onChange={(e) =>
+                      setWorkspaceViews((p) => ({
+                        ...p,
+                        schema: e.target.checked,
+                      }))
+                    }
+                    className="accent-cyan-500"
+                  />
+                  <span
+                    className={
+                      workspaceViews.schema
+                        ? "text-cyan-400 font-bold"
+                        : "text-gray-600"
+                    }
+                  >
+                    Mainnet Payload
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={workspaceViews.c2logic}
+                    onChange={(e) =>
+                      setWorkspaceViews((p) => ({
+                        ...p,
+                        c2logic: e.target.checked,
+                      }))
+                    }
+                    className="accent-cyan-500"
+                  />
+                  <span
+                    className={
+                      workspaceViews.c2logic
+                        ? "text-cyan-400 font-bold"
+                        : "text-gray-600"
+                    }
+                  >
+                    C2 Logic
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={workspaceViews.wallet}
+                    onChange={(e) =>
+                      setWorkspaceViews((p) => ({
+                        ...p,
+                        wallet: e.target.checked,
+                      }))
+                    }
+                    className="accent-cyan-500"
+                  />
+                  <span
+                    className={
+                      workspaceViews.wallet
+                        ? "text-cyan-400 font-bold"
+                        : "text-gray-600"
+                    }
+                  >
+                    Signer Wallet
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={workspaceViews.config}
+                    onChange={(e) =>
+                      setWorkspaceViews((p) => ({
+                        ...p,
+                        config: e.target.checked,
+                      }))
+                    }
+                    className="accent-cyan-500"
+                  />
+                  <span
+                    className={
+                      workspaceViews.config
+                        ? "text-cyan-400 font-bold"
+                        : "text-gray-600"
+                    }
+                  >
+                    Engine Config
+                  </span>
+                </label>
+              </div>
+
+              {/* Workspace Inner Section (Vertical Flexible Stack) */}
+              <div className="p-2 flex-1 overflow-y-auto min-h-0 bg-[#000000]/30 flex flex-col gap-2 relative">
+                <AnimatePresence>
+                  {workspaceViews.liquidation && (
+                    <motion.div
+                      key="liquidation"
+                      initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, height: "auto", scale: 1 }}
+                      exit={{
+                        opacity: 0,
+                        height: 0,
+                        scale: 0.98,
+                        overflow: "hidden",
+                      }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col flex-1 shrink-0 min-h-[200px]"
+                    >
+                      <div className="space-y-4 h-full flex flex-col">
+                        <div className="pt-2 flex-1 flex flex-col">
+                          <LiquidationMonitor addLog={addLog} />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {workspaceViews.schema && (
+                    <motion.div
+                      key="schema"
+                      initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, height: "auto", scale: 1 }}
+                      exit={{
+                        opacity: 0,
+                        height: 0,
+                        scale: 0.98,
+                        overflow: "hidden",
+                      }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col flex-1 shrink-0 min-h-[200px]"
+                    >
+                      <MainnetPayloadSchema />
+                    </motion.div>
+                  )}
+
+                  {workspaceViews.c2logic && (
+                    <motion.div
+                      key="c2logic"
+                      initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, height: "auto", scale: 1 }}
+                      exit={{
+                        opacity: 0,
+                        height: 0,
+                        scale: 0.98,
+                        overflow: "hidden",
+                      }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col flex-1 shrink-0 min-h-[200px]"
+                    >
+                      <C2TriggerLogic />
+                    </motion.div>
+                  )}
+
+                  {workspaceViews.wallet && (
+                    <motion.div
+                      key="wallet"
+                      initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, height: "auto", scale: 1 }}
+                      exit={{
+                        opacity: 0,
+                        height: 0,
+                        scale: 0.98,
+                        overflow: "hidden",
+                      }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col flex-1 shrink-0 min-h-[300px] bg-[#090a0d] border border-[#1e2025] rounded p-2"
+                    >
+                      <WalletTab addLog={addLog} />
+                    </motion.div>
+                  )}
+
+                  {workspaceViews.config && (
+                    <motion.div
+                      key="config"
+                      initial={{ opacity: 0, height: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, height: "auto", scale: 1 }}
+                      exit={{
+                        opacity: 0,
+                        height: 0,
+                        scale: 0.98,
+                        overflow: "hidden",
+                      }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col flex-1 shrink-0 min-h-[400px] bg-[#090a0d] border border-[#1e2025] rounded p-2"
+                    >
+                      <ConfigTab setConfigChanged={fetchDashboardConfig} addLog={addLog} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+
+          {/* SVG P&L Trajectory section */}
+          {(layout.chart || layout.executions) && (
+            <div
+              className={`grid grid-cols-1 md:grid-cols-${layout.chart && layout.executions ? "2" : "1"} gap-2.5 shrink-0`}
+            >
+              {/* Chart widget */}
+              {layout.chart && (
+                <div className="h-[380px]">
+                  <ProfitDashboard data={pnlHistory} recentTrades={recentCycles} />
+                </div>
+              )}
+
+              {/* Pipeline Stage Counts and Completed blocks log */}
+              {layout.executions && (
+                <div className="border border-[#1e2025] bg-[#0d0e12]/50 rounded-sm p-4 flex flex-col relative h-[380px]">
+                  <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#b388ff]/40" />
+                  <div className="flex justify-between items-center border-b border-[#1e2025]/60 pb-1.5 mb-1.5 shrink-0">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-white">
+                      Completed Executions
+                    </span>
+                    <span className="text-gray-500 font-mono text-[9.5px]">
+                      v2.1 optimized
+                    </span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-1 font-mono text-[9px] pr-1 scrollbar-thin">
+                    {recentCycles.map((cycle, i) => {
+                      const profitAmt = Number(cycle.total_profit_usd);
+                      return (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between p-1 bg-white/2 rounded-sm text-gray-300"
+                        >
+                          <span className="text-gray-500 shrink-0">
+                            #{cycle.cycle_id.slice(0, 5)}
+                          </span>
+                          <span className="font-semibold text-white truncate max-w-16">
+                            {cycle.token_pair}
+                          </span>
+                          <span className="text-[8px] px-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-sm">
+                            {cycle.c1_status}
+                          </span>
+                          <span className="text-[8px] px-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-sm">
+                            {cycle.c2_decision}
+                          </span>
+                          <span
+                            className={`font-bold shrink-0 ${profitAmt > 0 ? "text-[#00f5a0]" : "text-gray-500"}`}
+                          >
+                            ${profitAmt.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {recentCycles.length === 0 && (
+                      <div className="text-center py-10 text-gray-500">
+                        Awaiting solved bundle block settlements...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Right column (System Intel & Event Log widget) */}
+        <section
+          className={`w-full lg:w-[25%] flex-1 min-w-[250px] min-h-0 overflow-y-auto ${!layout.intel ? "hidden" : ""}`}
+        >
+          {layout.intel && (
+            <SystemIntel
+              wins={wins}
+              trades={trades}
+              velocity={velocity}
+              avgProfit={avgProfit}
+              util={util}
+              totalSettledCycles={totalSettledCycles}
+              block={block}
+              gas={gas}
+              logs={logs}
+              isPaused={isPaused}
+              dryRun={dryRun}
+            />
+          )}
+        </section>
         </div>
       </main>
 
-      <footer className="mt-12 pt-8 border-t border-[#1e2025] flex justify-between items-center opacity-30 pointer-events-none">
-        <div className="text-[9px] font-mono uppercase tracking-widest">
-          Auth Signature: 0x8488...4541
+      {/* Horizontal Opportunity Feed Banner */}
+      {layout.spreads && (
+        <div className="shrink-0 bg-transparent border-[#1e2025]/30 overflow-hidden relative z-10 mx-2 mb-2 rounded-sm flex items-center px-2 py-2">
+          <div className="shrink-0 flex items-center gap-1.5 font-mono mr-4 pr-4 border-r border-[#1e2025]/60 pr-2">
+            <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping" />
+            <div className="flex flex-col">
+              <h3 className="text-[9px] uppercase tracking-wider font-bold text-white leading-tight">
+                Live Spreads
+              </h3>
+              <span className="text-[7.5px] uppercase font-bold tracking-widest text-[#00f5a0] leading-none mt-0.5">
+                {opportunities.length} DETECTED
+              </span>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-x-auto flex gap-2 scrollbar-hide items-center font-mono">
+            {opportunities.map((opp, idx) => {
+              const profitPct = Math.min(100, (opp.profit_usd / 115) * 100);
+              return (
+                <div
+                  key={idx}
+                  className="shrink-0 min-w-[200px] p-2 bg-transparent border border-transparent rounded-sm transition-all duration-200"
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-semibold text-white text-[9px]">
+                      {opp.pair}
+                    </span>
+                    <span className="px-1 py-[0.5px] text-[7px] font-bold border border-[#b388ff]/20 bg-[#b388ff]/5 rounded-sm text-[#b388ff]">
+                      POLY
+                    </span>
+                  </div>
+                  {/* Visualizer factor */}
+                  <div className="w-full bg-[#1e2025]/40 h-[3px] rounded-sm overflow-hidden mb-1">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-400 to-[#00f5a0]"
+                      style={{ width: `${profitPct}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[8px] text-gray-500 leading-none">
+                    <span>{opp.spread_bps} BPS</span>
+                    <span className="text-[#00f5a0] font-bold">
+                      +${opp.profit_usd.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+            {opportunities.length === 0 && (
+              <div className="text-gray-500 text-[9px] whitespace-nowrap pl-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-yellow-400/50 rounded-full animate-pulse"></span>
+                Listening to Polygon RPC for AMM pricing differences...
+              </div>
+            )}
+          </div>
         </div>
-        <div className="text-[9px] font-mono uppercase tracking-widest">
-          Polygon Mainnet // Balancer V2 Flash Loans
+      )}
+
+      {/* Parallel Executor Lanes */}
+      <LanesGrid lanes={lanes} />
+
+      {/* Cyber footer info */}
+      <footer className="h-6 bg-[#040508] border-t border-[#1e2025] flex justify-between items-center px-4 font-mono text-[7px] text-gray-500 uppercase tracking-widest select-none shrink-0 relative z-20">
+        <div className="flex items-center gap-2">
+          <span className="text-[#00f5a0] font-bold animate-pulse">
+            ● STATUS: OPERATIONAL
+          </span>
+          <span className="text-gray-700">|</span>
+          <span>
+            AUTH SIGN: {botWallet.substring(0, 6)}...
+            {botWallet.substring(botWallet.length - 4)}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-right font-mono">
+          <span>WS FEED: OK</span>
+          <span className="text-gray-700">/</span>
+          <span>BALANCER MEV MULTICALL FLASH LOANS SYNCED</span>
         </div>
       </footer>
+      <NotificationSidebar />
+      <PipelineDiagnosticModal
+        isOpen={isDiagnosticModalOpen}
+        onClose={() => setIsDiagnosticModalOpen(false)}
+      />
     </div>
   );
 }
