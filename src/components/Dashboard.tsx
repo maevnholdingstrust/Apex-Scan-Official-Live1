@@ -927,6 +927,7 @@ const PricesTab = ({ addLog }: { addLog: (tag: any, msg: string) => void }) => {
 import PipelineDiagnosticModal from "./PipelineDiagnosticModal";
 import HyperImmersiveOpportunities from "./HyperImmersiveOpportunities";
 import ProtocolModules from "./ProtocolModules";
+import ExecutionModal from "./ExecutionModal";
 
 // -------------------------------------------------------------------
 // Core Main Component: Dashboard
@@ -943,6 +944,7 @@ export default function Dashboard() {
   });
 
   const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState(true);
+  const [selectedOppAlert, setSelectedOppAlert] = useState<any | null>(null);
 
   const [layout, setLayout] = useState({
     spreads: false,
@@ -1396,7 +1398,18 @@ export default function Dashboard() {
         {layout.hyper && (
           <div className="w-full relative z-20 mb-2 shrink-0 grid grid-cols-1 xl:grid-cols-3 gap-2">
             <div className="xl:col-span-2">
-                <HyperImmersiveOpportunities opportunities={opportunities} />
+                <HyperImmersiveOpportunities 
+                  opportunities={opportunities} 
+                  onOpportunityClick={(opp) => {
+                    setSelectedOppAlert({
+                      id: `OPP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+                      profit: opp.profit_usd,
+                      path: opp.pair,
+                      dex: `${opp.dex_a || "UNISWAP"} -> ${opp.dex_b || "QUICKSWAP"}`,
+                      timestamp: new Date().toLocaleTimeString(),
+                    });
+                  }}
+                />
             </div>
             <div className="xl:col-span-1 min-h-[300px]">
                 <QuantumCore logs={logs} />
@@ -1742,7 +1755,14 @@ export default function Dashboard() {
                       return (
                         <div
                           key={i}
-                          className="flex items-center justify-between p-1 bg-white/2 rounded-sm text-gray-300"
+                          onClick={() => setSelectedOppAlert({
+                            id: `CYC-${cycle.cycle_id.slice(0, 8).toUpperCase()}`,
+                            profit: profitAmt,
+                            path: cycle.token_pair,
+                            dex: "Off-Chain Scan ➔ Multicall Executor",
+                            timestamp: new Date().toLocaleTimeString(),
+                          })}
+                          className="flex items-center justify-between p-1 hover:bg-white/5 hover:border-cyan-400/20 border border-transparent rounded-sm text-gray-300 cursor-pointer transition-all"
                         >
                           <span className="text-gray-500 shrink-0">
                             #{cycle.cycle_id.slice(0, 5)}
@@ -1820,7 +1840,14 @@ export default function Dashboard() {
               return (
                 <div
                   key={idx}
-                  className="shrink-0 min-w-[200px] p-2 bg-transparent border border-transparent rounded-sm transition-all duration-200"
+                  onClick={() => setSelectedOppAlert({
+                    id: `OPP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+                    profit: opp.profit_usd,
+                    path: opp.pair,
+                    dex: `${opp.dex_a || "UNISWAP"} ➔ ${opp.dex_b || "QUICKSWAP"}`,
+                    timestamp: new Date().toLocaleTimeString(),
+                  })}
+                  className="shrink-0 min-w-[200px] p-2 bg-[#0d0e12]/30 border border-[#1e2025]/50 hover:border-cyan-400/40 hover:bg-[#0d0e12]/60 rounded-sm cursor-pointer transition-all duration-200"
                 >
                   <div className="flex justify-between items-center mb-1">
                     <span className="font-semibold text-white text-[9px]">
@@ -1878,6 +1905,10 @@ export default function Dashboard() {
         </div>
       </footer>
       <NotificationSidebar />
+      <ExecutionModal
+        alert={selectedOppAlert}
+        onClose={() => setSelectedOppAlert(null)}
+      />
       <PipelineDiagnosticModal
         isOpen={isDiagnosticModalOpen}
         onClose={() => setIsDiagnosticModalOpen(false)}

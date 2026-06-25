@@ -14,9 +14,10 @@ interface Opportunity {
 
 interface HyperImmersiveOpportunitiesProps {
   opportunities: Opportunity[];
+  onOpportunityClick?: (opp: Opportunity) => void;
 }
 
-export default function HyperImmersiveOpportunities({ opportunities }: HyperImmersiveOpportunitiesProps) {
+export default function HyperImmersiveOpportunities({ opportunities, onOpportunityClick }: HyperImmersiveOpportunitiesProps) {
   const [activeId, setActiveId] = useState<number | null>(null);
 
   // Background grid animation logic could be added here
@@ -66,6 +67,7 @@ export default function HyperImmersiveOpportunities({ opportunities }: HyperImme
                   transition={{ duration: 0.3, delay: idx * 0.05 }}
                   onMouseEnter={() => setActiveId(idx)}
                   onMouseLeave={() => setActiveId(null)}
+                  onClick={() => onOpportunityClick?.(opp)}
                   className={`
                     group cursor-pointer overflow-hidden rounded-xl border transition-all duration-300
                     ${activeId === idx 
