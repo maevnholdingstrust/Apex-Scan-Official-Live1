@@ -10,6 +10,119 @@ import { DeFiExecutorManager } from "./ExecutionManager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// ─── Production-grade Security Utilities ────────────────────────────────────
+
+/**
+ * Validate critical environment variables at process startup.
+ * Exits the process when live execution is armed but required vars are absent.
+ */
+function validateStartupEnvironment(): void {
+  const isLive =
+    process.env.LIVE_EXECUTION === 'true' ||
+    process.env.ARM_LIVE_EXECUTION === 'true';
+  const isProd = process.env.NODE_ENV === 'production';
+
+  if (isLive) {
+    const liveRequired = [
+      'EXECUTOR_PRIVATE_KEY',
+      'C1_TARGET',
+      'POLYGON_RPC_URL',
+    ];
+    const missing = liveRequired.filter((k) => !process.env[k]);
+    if (missing.length > 0) {
+      console.error(
+        `[APEX_OMEGA] FATAL: LIVE_EXECUTION=true but required vars are missing: ${missing.join(', ')}`,
+      );
+      process.exit(1);
+    }
+  }
+
+  if (!process.env.API_TOKEN && isProd) {
+    console.warn(
+      '[APEX_OMEGA] WARNING: API_TOKEN is not set. ' +
+        'Control endpoints (arm-live, pause, config-write, liquidate) are UNPROTECTED in production!',
+    );
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn(
+      '[APEX_OMEGA] WARNING: GEMINI_API_KEY not set – AI Copilot will be unavailable.',
+    );
+  }
+
+  console.log(
+    `[APEX_OMEGA] Startup validation complete. ` +
+      `Mode: ${isProd ? 'PRODUCTION' : 'DEVELOPMENT'} | Live execution: ${isLive}`,
+  );
+}
+
+/** Simple in-memory sliding-window rate limiter (no external dependencies). */
+const _rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+function createRateLimit(maxRequests: number, windowMs: number) {
+  return (
+    req: import('express').Request,
+    res: import('express').Response,
+    next: import('express').NextFunction,
+  ) => {
+    const key =
+      (req.ip ?? req.socket?.remoteAddress ?? 'unknown') + '|' + req.path;
+    const now = Date.now();
+    const entry = _rateLimitStore.get(key);
+    if (!entry || entry.resetAt < now) {
+      _rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    if (entry.count >= maxRequests) {
+      res.setHeader(
+        'Retry-After',
+        String(Math.ceil((entry.resetAt - now) / 1000)),
+      );
+      return res
+        .status(429)
+        .json({ error: 'Too many requests – please slow down.' });
+    }
+    entry.count++;
+    return next();
+  };
+}
+
+/**
+ * Bearer-token / X-API-Key auth guard for sensitive control endpoints.
+ * In development mode without API_TOKEN set, the guard is bypassed with a warning.
+ */
+function requireAuth(
+  req: import('express').Request,
+  res: import('express').Response,
+  next: import('express').NextFunction,
+) {
+  const apiToken = process.env.API_TOKEN;
+  if (!apiToken) {
+    if (process.env.NODE_ENV === 'production') {
+      return res
+        .status(503)
+        .json({ error: 'Server misconfiguration: API_TOKEN not configured.' });
+    }
+    // Dev mode: allow through with a warning so developer DX is preserved
+    console.warn(
+      `[AUTH] Unauthenticated access to ${req.method} ${req.path} (API_TOKEN not set – dev mode only)`,
+    );
+    return next();
+  }
+  const provided = (
+    (req.headers['x-api-key'] as string) ||
+    (req.headers['authorization'] ?? '').replace(/^Bearer\s+/i, '')
+  ).trim();
+  if (!provided || provided !== apiToken) {
+    return res.status(401).json({
+      error:
+        'Unauthorized. Supply a valid token via the X-API-Key or Authorization header.',
+    });
+  }
+  return next();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const getModuleStatus = (moduleName: string): boolean => {
   try {
     const configPath = path.join(process.cwd(), "config.json");
@@ -250,10 +363,62 @@ class ExecutorPayloadBuilder {
 }
 
 async function startServer() {
-  const app = express();
-  const PORT = 3000;
+  validateStartupEnvironment();
 
-  app.use(express.json());
+  const app = express();
+  // PORT is controlled by API_PORT env var (default 3000).
+  // The docker-compose healthcheck and EXPOSE both reference port 3000 — update
+  // those too if you change API_PORT.
+  const PORT = Number(process.env.API_PORT) || 3000;
+
+  // ── CORS ────────────────────────────────────────────────────────────────────
+  app.use((req, res, next) => {
+    const isProd = process.env.NODE_ENV === 'production';
+    const rawOrigins = process.env.CORS_ORIGINS ?? (isProd ? '' : '*');
+    const allowedOrigins = rawOrigins.split(',').map((s) => s.trim()).filter(Boolean);
+
+    if (isProd && allowedOrigins.length === 0) {
+      // Warn once so operators know CORS is blocking all cross-origin requests.
+      console.warn(
+        '[APEX_OMEGA] WARNING: CORS_ORIGINS is not set in production. ' +
+          'All cross-origin requests will be blocked. ' +
+          'Set CORS_ORIGINS to your frontend origin (e.g. https://app.yourdomain.com).',
+      );
+    }
+
+    const reqOrigin = req.headers.origin;
+    if (allowedOrigins.includes('*')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    } else if (reqOrigin && allowedOrigins.includes(reqOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+      res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, Authorization');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    return next();
+  });
+
+  // ── Security headers ────────────────────────────────────────────────────────
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    }
+    return next();
+  });
+
+  // ── Body limit + JSON parsing ───────────────────────────────────────────────
+  app.use(express.json({ limit: '1mb' }));
+
+  // ── Global rate limiting (60 req/min per IP×path) ──────────────────────────
+  const generalRateLimit = createRateLimit(60, 60_000);
+  // Stricter limit for state-changing or high-cost endpoints
+  const strictRateLimit = createRateLimit(10, 60_000);
+  app.use(generalRateLimit);
 
   // Integrated Memory State for High-Fidelity MEV Simulation
   let liveBlockNumber = 42069137;
@@ -278,6 +443,20 @@ async function startServer() {
   let cycleIdCounter = 1;
 
   let systemLogQueue: { tag: string; message: string }[] = [];
+
+  // ── Global Market Prices Cache — declared early so the heartbeat setInterval
+  // that fires asynchronously can safely reference it. ──────────────────────
+  let globalPrices: Record<string, number> = {
+    "WETH": 3485.2,
+    "WBTC": 67420.5,
+    "USDC": 1.0,
+    "USDC.e": 0.9998,
+    "USDT": 1.0001,
+    "DAI": 1.0002,
+    "POL / MATIC": 0.7241,
+    "LINK": 14.80,
+    "AAVE": 92.40
+  };
 
   const pipelineStages = [
     { name: "DISCOVERY", count: 274 },
@@ -384,8 +563,8 @@ async function startServer() {
       if (blockData && blockData.hash && (Number(liveBlockNumber) % 5 === 0)) {
         systemLogQueue.push({ tag: "SYS", message: `Block ${liveBlockNumber} digested. BlockHash: ${blockData.hash.substring(0, 14)}...`});
       }
-    } catch {
-       // Silent fail
+    } catch (err) {
+      console.error('[APEX_OMEGA] Heartbeat error:', (err as Error).message);
     }
   }, 3500);
 
@@ -574,7 +753,7 @@ async function startServer() {
   });
 
   // Controls Posting Triggers
-  app.post("/api/chains/scan-all", (req, res) => {
+  app.post("/api/chains/scan-all", requireAuth, (req, res) => {
     reserveDirtyCount = 0;
     reserveLastUpdate = Date.now();
     res.json({
@@ -583,23 +762,23 @@ async function startServer() {
     });
   });
 
-  app.post("/api/execution/pause", (req, res) => {
+  app.post("/api/execution/pause", requireAuth, (req, res) => {
     isEnginePaused = true;
     res.json({ success: true, paused: true });
   });
 
-  app.post("/api/execution/resume", (req, res) => {
+  app.post("/api/execution/resume", requireAuth, (req, res) => {
     isEnginePaused = false;
     res.json({ success: true, paused: false });
   });
 
-  app.post("/api/execution/force-dry-run", (req, res) => {
+  app.post("/api/execution/force-dry-run", requireAuth, (req, res) => {
     isDryRun = true;
     defiExecutor.setDryRun(true);
     res.json({ success: true, dryRun: true });
   });
 
-  app.post("/api/execution/arm-live", (req, res) => {
+  app.post("/api/execution/arm-live", requireAuth, (req, res) => {
     isDryRun = false;
     defiExecutor.setDryRun(false);
     res.json({ success: true, dryRun: false });
@@ -661,7 +840,7 @@ async function startServer() {
     res.json(report);
   });
 
-  app.get("/api/config", (req, res) => {
+  app.get("/api/config", generalRateLimit, (req, res) => {
     try {
       const configPath = path.join(process.cwd(), "config.json");
       let cfg = {};
@@ -718,7 +897,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/config", (req, res) => {
+  app.post("/api/config", requireAuth, (req, res) => {
     try {
       const updated = req.body;
       const configPath = path.join(process.cwd(), "config.json");
@@ -1049,7 +1228,7 @@ async function startServer() {
          latestOpportunities = [];
        }
      } catch(err) {
-       // silent fail
+       console.error('[proactiveArbSweep] Sweep error:', (err as Error).message);
      } finally {
        isProactiveScannerRunning = false;
      }
@@ -1095,7 +1274,7 @@ async function startServer() {
   });
 
   // Calculate full transparent routes, accurate leg prices, fee calculation, and transaction dna
-  app.post("/api/arbitrage/simulate", async (req, res) => {
+  app.post("/api/arbitrage/simulate", strictRateLimit, async (req, res) => {
     const { amount, routeId } = req.body;
     const inputAmount = Number(amount) || 15000;
 
@@ -1312,7 +1491,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/liquidations/execute", async (req, res) => {
+  app.post("/api/liquidations/execute", requireAuth, strictRateLimit, async (req, res) => {
     if (!getModuleStatus("MODULE_LIQUIDATION_ENABLED")) {
       return res.status(403).json({ success: false, message: "DISABLED_MODULE: Flash Liquidations are disabled in settings." });
     }
@@ -1394,18 +1573,9 @@ async function startServer() {
     }
   });
 
-  // Global Market Prices Cache
-  let globalPrices: Record<string, number> = {
-    "WETH": 3485.2,
-    "WBTC": 67420.5,
-    "USDC": 1.0,
-    "USDC.e": 0.9998,
-    "USDT": 1.0001,
-    "DAI": 1.0002,
-    "POL / MATIC": 0.7241,
-    "LINK": 14.80,
-    "AAVE": 92.40
-  };
+  // Global Market Prices Cache — moved above to before the heartbeat setInterval.
+  // fetchGlobalPrices and its setInterval live here to keep the price-fetching
+  // logic co-located with the /api/prices route it feeds.
 
   const fetchGlobalPrices = async () => {
     try {
